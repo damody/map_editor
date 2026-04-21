@@ -2,6 +2,7 @@ use eui::quick::ui::UI;
 use eui::Rect;
 
 use crate::app::AppState;
+use crate::style::{FS_LABEL, FS_SUBHEAD, LH_LABEL};
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -14,8 +15,8 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         ui.scope(inner, |ctx| {
             let mut ui = UI::new(ctx);
             ui.label("Creep Waves (read-only)")
-                .font_size(16.0)
-                .height(20.0)
+                .font_size(FS_SUBHEAD)
+                .height(LH_LABEL)
                 .draw();
             ui.spacer(4.0);
 
@@ -28,7 +29,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             if buf.is_empty() {
                 buf = "(無 wave 資料)".to_string();
             }
-            ui.label(&buf).font_size(13.0).draw();
+            ui.label(&buf).font_size(FS_LABEL).draw();
         });
     });
 }

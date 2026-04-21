@@ -5,6 +5,7 @@ use eui::{rgba, Color, Rect};
 use crate::app::{AppState, DragState, Selection, Tool};
 use crate::geometry::{point_in_polygon, point_segment_dist};
 use crate::schema::{BlockedRegionJD, CheckPointJD, PointJD, StructureJD};
+use crate::style::{FS_CAPTION, FS_LABEL};
 
 pub fn world_to_screen(app: &AppState, rect: &Rect, wx: f32, wy: f32) -> (f32, f32) {
     let cx = rect.x + rect.w * 0.5;
@@ -49,7 +50,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         ui.text(&cp.Name)
             .rect(Rect::new(sx + 8.0, sy - 8.0, 100.0, 16.0))
             .color(Color::WHITE)
-            .font_size(13.0)
+            .font_size(FS_LABEL)
             .draw();
     }
 
@@ -75,7 +76,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         ui.text(&st.Tower)
             .rect(Rect::new(sx - 40.0, sy + size * 0.5 + 2.0, 80.0, 14.0))
             .color(Color::WHITE)
-            .font_size(12.0)
+            .font_size(FS_CAPTION)
             .center()
             .draw();
     }
@@ -378,7 +379,7 @@ fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
             ui.text(&region.Name)
                 .rect(Rect::new(pts[0].0 + 6.0, pts[0].1 - 14.0, 100.0, 14.0))
                 .color(Color::WHITE)
-                .font_size(12.0)
+                .font_size(FS_CAPTION)
                 .draw();
         }
     }

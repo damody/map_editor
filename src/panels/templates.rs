@@ -2,6 +2,7 @@ use eui::quick::ui::UI;
 use eui::{ButtonStyle, Rect};
 
 use crate::app::{AppState, Selection, ViewMode};
+use crate::style::{FS_BODY, FS_CAPTION, FS_HEAD, FS_LABEL, LH_HEAD};
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -22,7 +23,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
 }
 
 fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
-    ui.label("Tower 模板").font_size(18.0).height(28.0).draw();
+    ui.label("Tower 模板").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
 
     // Tower templates — 雙擊 (shift) 進 inspector；普通點擊 → 設為「新增塔」模板
@@ -52,7 +53,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
 
     ui.spacer(8.0);
     ui.label(&format!("Faction: {}", app.new_tower_faction))
-        .font_size(15.0)
+        .font_size(FS_BODY)
         .draw();
     if ui.button("切換 Player/Enemy").secondary().draw() {
         app.new_tower_faction = if app.new_tower_faction == "Player" {
@@ -71,7 +72,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
     }
 
     ui.spacer(16.0);
-    ui.label("Creep 模板").font_size(18.0).height(28.0).draw();
+    ui.label("Creep 模板").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
     let creeps = app.map.Creep.clone();
     for (i, c) in creeps.iter().enumerate() {
@@ -91,8 +92,8 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
     // BlockedRegions 列表：方便跨多邊形管理
     ui.spacer(16.0);
     ui.label(&format!("BlockedRegions ({})", app.map.BlockedRegions.len()))
-        .font_size(18.0)
-        .height(28.0)
+        .font_size(FS_HEAD)
+        .height(LH_HEAD)
         .draw();
     let regions = app.map.BlockedRegions.clone();
     for (i, r) in regions.iter().enumerate() {
@@ -111,7 +112,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
 }
 
 fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
-    ui.label("Heroes (entity.json)").font_size(18.0).height(28.0).draw();
+    ui.label("Heroes (entity.json)").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
     let heroes = app.entity.heroes.clone();
     for (i, h) in heroes.iter().enumerate() {
@@ -128,7 +129,7 @@ fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
     }
 
     ui.spacer(16.0);
-    ui.label("Enemies (entity.json)").font_size(18.0).height(28.0).draw();
+    ui.label("Enemies (entity.json)").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
     let enemies = app.entity.enemies.clone();
     for (i, e) in enemies.iter().enumerate() {
@@ -147,9 +148,9 @@ fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
     ui.spacer(16.0);
     if let Some(ref p) = app.entity_path {
         ui.label(&format!("Loaded: {}", p.display()))
-            .font_size(12.0)
+            .font_size(FS_CAPTION)
             .draw();
     } else {
-        ui.label("(未載入 entity.json)").font_size(13.0).draw();
+        ui.label("(未載入 entity.json)").font_size(FS_LABEL).draw();
     }
 }

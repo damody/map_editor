@@ -3,6 +3,7 @@ use eui::{ButtonStyle, Rect};
 
 use crate::app::{AppState, Tool, ViewMode};
 use crate::io;
+use crate::style::FS_BODY;
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -175,7 +176,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             let tw = 700.0_f32;
             ui.text(&status)
                 .rect(Rect::new(x, row.y, tw, row.h))
-                .font_size(15.0)
+                .font_size(FS_BODY)
                 .draw();
         });
     });

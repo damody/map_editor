@@ -5,6 +5,7 @@ mod geometry;
 mod io;
 mod panels;
 mod schema;
+mod style;
 
 use eui::{AppOptions, Rect};
 

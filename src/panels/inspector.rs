@@ -2,6 +2,7 @@ use eui::quick::ui::UI;
 use eui::Rect;
 
 use crate::app::{AppState, Selection};
+use crate::style::{FS_BODY, FS_BODY_SM, FS_HEAD, FS_LABEL, FS_SUBHEAD, LH_HEAD};
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -13,12 +14,12 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         let inner = eui::quick::ui::inset(&r, 10.0, 10.0);
         ui.scope(inner, |ctx| {
             let mut ui = UI::new(ctx);
-            ui.label("Inspector").font_size(18.0).height(28.0).draw();
+            ui.label("Inspector").font_size(FS_HEAD).height(LH_HEAD).draw();
             ui.spacer(6.0);
 
             match app.selection {
                 Selection::None => {
-                    ui.label("(未選中物件)").font_size(15.0).draw();
+                    ui.label("(未選中物件)").font_size(FS_BODY).draw();
                 }
                 Selection::Structure(i) => draw_structure(&mut ui, app, i),
                 Selection::CheckPoint(i) => draw_checkpoint(&mut ui, app, i),
@@ -64,7 +65,7 @@ fn slider_i32(ui: &mut UI, label: &str, v: &mut i32, min: i32, max: i32) -> bool
 fn draw_structure(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.map.Structures.len() { return; }
     let mut s = app.map.Structures[i].clone();
-    ui.label(&format!("Structure #{}", i)).font_size(16.0).draw();
+    ui.label(&format!("Structure #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
 
     let mut changed = false;
@@ -103,7 +104,7 @@ fn draw_checkpoint(ui: &mut UI, app: &mut AppState, i: usize) {
     let mut x = app.map.CheckPoint[i].X;
     let mut y = app.map.CheckPoint[i].Y;
 
-    ui.label(&format!("CheckPoint #{}", i)).font_size(16.0).draw();
+    ui.label(&format!("CheckPoint #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
 
     let mut name_changed = false;
@@ -147,13 +148,13 @@ fn draw_blocked_region(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.map.BlockedRegions.len() { return; }
     let mut name = app.map.BlockedRegions[i].Name.clone();
     let n_points = app.map.BlockedRegions[i].Points.len();
-    ui.label(&format!("BlockedRegion #{}", i)).font_size(16.0).draw();
+    ui.label(&format!("BlockedRegion #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     if ui.input("Name", &mut name).draw() {
         app.map.BlockedRegions[i].Name = name;
         app.dirty = true;
     }
-    ui.label(&format!("Points: {}", n_points)).font_size(14.0).draw();
+    ui.label(&format!("Points: {}", n_points)).font_size(FS_BODY_SM).draw();
     ui.spacer(12.0);
     if ui.button("Delete Region").draw() {
         app.map.BlockedRegions.remove(i);
@@ -167,7 +168,7 @@ fn draw_blocked_region_point(ui: &mut UI, app: &mut AppState, ri: usize, pi: usi
     if pi >= region.Points.len() { return; }
     let mut x = region.Points[pi].X;
     let mut y = region.Points[pi].Y;
-    ui.label(&format!("Region#{}.Point#{}", ri, pi)).font_size(16.0).draw();
+    ui.label(&format!("Region#{}.Point#{}", ri, pi)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if slider_f32(ui, "X", &mut x, -3000.0, 3000.0) { changed = true; }
@@ -184,14 +185,14 @@ fn draw_blocked_region_point(ui: &mut UI, app: &mut AppState, ri: usize, pi: usi
         app.selection = Selection::BlockedRegion(ri);
         app.dirty = true;
     } else if !min_can_delete {
-        ui.label("(最少 3 點，無法刪除)").font_size(13.0).draw();
+        ui.label("(最少 3 點，無法刪除)").font_size(FS_LABEL).draw();
     }
 }
 
 fn draw_tower_template(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.map.Tower.len() { return; }
     let mut t = app.map.Tower[i].clone();
-    ui.label(&format!("Tower Template #{}", i)).font_size(16.0).draw();
+    ui.label(&format!("Tower Template #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if ui.input("Name", &mut t.Name).draw() { changed = true; }
@@ -218,7 +219,7 @@ fn draw_tower_template(ui: &mut UI, app: &mut AppState, i: usize) {
 fn draw_creep_template(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.map.Creep.len() { return; }
     let mut c = app.map.Creep[i].clone();
-    ui.label(&format!("Creep Template #{}", i)).font_size(16.0).draw();
+    ui.label(&format!("Creep Template #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if ui.input("Name", &mut c.Name).draw() { changed = true; }
@@ -253,7 +254,7 @@ fn draw_creep_template(ui: &mut UI, app: &mut AppState, i: usize) {
 fn draw_hero(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.entity.heroes.len() { return; }
     let mut h = app.entity.heroes[i].clone();
-    ui.label(&format!("Hero #{}  ({})", i, h.id)).font_size(16.0).draw();
+    ui.label(&format!("Hero #{}  ({})", i, h.id)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if ui.input("id", &mut h.id).draw() { changed = true; }
@@ -285,7 +286,7 @@ fn draw_hero(ui: &mut UI, app: &mut AppState, i: usize) {
 fn draw_enemy(ui: &mut UI, app: &mut AppState, i: usize) {
     if i >= app.entity.enemies.len() { return; }
     let mut e = app.entity.enemies[i].clone();
-    ui.label(&format!("Enemy #{}  ({})", i, e.id)).font_size(16.0).draw();
+    ui.label(&format!("Enemy #{}  ({})", i, e.id)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if ui.input("id", &mut e.id).draw() { changed = true; }
