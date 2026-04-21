@@ -161,6 +161,13 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         }
                     }
                 }
+                // BlockedRegion / TowerTemplate / CreepTemplate / Hero / Enemy
+                // 尚未實作對應 inspector UI
+                _ => {
+                    ui.label(&format!("(尚未實作: {:?})", app.selection))
+                        .font_size(14.0)
+                        .draw();
+                }
             }
         });
     });

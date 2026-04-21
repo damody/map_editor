@@ -3,19 +3,17 @@ use eui::quick::ui::UI;
 use eui::{rgba, Color, Rect};
 
 use crate::app::{AppState, DragState, Selection, Tool};
-use crate::schema::{CheckPointJD, StructureJD};
+use crate::geometry::{point_in_polygon, point_segment_dist};
+use crate::schema::{BlockedRegionJD, CheckPointJD, PointJD, StructureJD};
 
-/// 世界座標 → 螢幕像素（在 rect 內）
 pub fn world_to_screen(app: &AppState, rect: &Rect, wx: f32, wy: f32) -> (f32, f32) {
     let cx = rect.x + rect.w * 0.5;
     let cy = rect.y + rect.h * 0.5;
     let sx = cx + (wx - app.pan.0) * app.zoom;
-    // 螢幕 Y 往下、world Y 往上：-wy
     let sy = cy + (-wy - app.pan.1) * app.zoom;
     (sx, sy)
 }
 
-/// 螢幕像素 → 世界座標
 pub fn screen_to_world(app: &AppState, rect: &Rect, sx: f32, sy: f32) -> (f32, f32) {
     let cx = rect.x + rect.w * 0.5;
     let cy = rect.y + rect.h * 0.5;
@@ -29,14 +27,11 @@ fn point_in_rect(rect: &Rect, x: f32, y: f32) -> bool {
 }
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
-    // 背景
     ui.paint_filled_rect(rect, rgba(0.15, 0.18, 0.20, 1.0), 0.0);
 
-    // Grid（每 100 world unit 一條線）
     draw_grid(ui, &rect, app);
-
-    // 路徑線
     draw_paths(ui, &rect, app);
+    draw_blocked_regions(ui, &rect, app);
 
     // CheckPoints
     for (i, cp) in app.map.CheckPoint.iter().enumerate() {
@@ -51,7 +46,6 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         };
         let r = Rect::new(sx - size * 0.5, sy - size * 0.5, size, size);
         ui.paint_filled_rect(r, color, size * 0.5);
-        // 名字
         ui.text(&cp.Name)
             .rect(Rect::new(sx + 8.0, sy - 8.0, 100.0, 16.0))
             .color(Color::WHITE)
@@ -59,7 +53,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             .draw();
     }
 
-    // Structures（塔/基地）
+    // Structures
     for (i, st) in app.map.Structures.iter().enumerate() {
         let (sx, sy) = world_to_screen(app, &rect, st.X, st.Y);
         let selected = matches!(app.selection, Selection::Structure(idx) if idx == i);
@@ -70,13 +64,14 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         };
         let r = Rect::new(sx - size * 0.5, sy - size * 0.5, size, size);
         ui.paint_filled_rect(r, color, 4.0);
+        if let Some(cr) = st.CollisionRadius {
+            draw_circle(ui, sx, sy, cr * app.zoom, rgba(1.0, 0.8, 0.3, 0.7));
+        }
         if selected {
-            // 黃色邊框 by 畫大一點的方塊在後面（偷懶用 4 條邊）
             let s2 = size + 6.0;
             let outer = Rect::new(sx - s2 * 0.5, sy - s2 * 0.5, s2, s2);
             ui.paint_outline_rect(outer, rgba(1.0, 0.9, 0.0, 1.0), 2.0, 4.0);
         }
-        // tower 名稱
         ui.text(&st.Tower)
             .rect(Rect::new(sx - 40.0, sy + size * 0.5 + 2.0, 80.0, 14.0))
             .color(Color::WHITE)
@@ -85,13 +80,15 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             .draw();
     }
 
+    if !app.region_draft.is_empty() {
+        draw_region_draft(ui, &rect, app);
+    }
+
     // === 滑鼠互動 ===
-    // 只在滑鼠於 canvas rect 內才處理
     let mx = ui.ctx().input().mouse_x;
     let my = ui.ctx().input().mouse_y;
     let in_canvas = point_in_rect(&rect, mx, my);
 
-    // Pan：中鍵拖拉。用上一 frame 的滑鼠位置算 delta，除以 zoom 換算成世界座標。
     if ui.ctx().input().mouse_middle_down {
         if let Some((px, py)) = app.prev_mouse_screen {
             let dx_screen = mx - px;
@@ -100,16 +97,13 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             app.pan.1 -= dy_screen / app.zoom;
         }
     }
-    // 更新 prev（不論是否在 canvas 內都記，拖出去再拖回來才不會跳）
     app.prev_mouse_screen = Some((mx, my));
 
-    // zoom: wheel
     if in_canvas {
         let wheel = ui.ctx().input().mouse_wheel_y;
         if wheel.abs() > 0.01 {
             let old_zoom = app.zoom;
             app.zoom = (app.zoom * (1.0 + wheel * 0.1)).clamp(0.02, 5.0);
-            // 以滑鼠為中心縮放：調整 pan 讓 mouse 指的 world 點保持不動
             let (wx_before, wy_before) = screen_to_world_raw(app, &rect, mx, my, old_zoom);
             let (wx_after, wy_after) = screen_to_world(app, &rect, mx, my);
             app.pan.0 += wx_before - wx_after;
@@ -117,7 +111,15 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         }
     }
 
-    // 左鍵：依 tool 決定行為（先檢查雙擊插入 checkpoint）
+    // 右鍵：AddBlockedRegion 時 commit 多邊形
+    if in_canvas
+        && ui.ctx().input().mouse_right_pressed
+        && app.tool == Tool::AddBlockedRegion
+    {
+        commit_region_draft(app);
+        return;
+    }
+
     if in_canvas && ui.ctx().input().mouse_pressed {
         let now = std::time::Instant::now();
         let is_double = match (app.last_click_time, app.last_click_pos) {
@@ -129,19 +131,24 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             _ => false,
         };
 
-        if is_double && try_insert_on_path(app, &rect, mx, my) {
-            // 雙擊且成功插入：清除計時避免下一次又觸發
-            app.last_click_time = None;
-            app.last_click_pos = None;
-            return;
+        if is_double {
+            if app.tool == Tool::AddBlockedRegion {
+                commit_region_draft(app);
+                app.last_click_time = None;
+                app.last_click_pos = None;
+                return;
+            }
+            if try_insert_on_path(app, &rect, mx, my) {
+                app.last_click_time = None;
+                app.last_click_pos = None;
+                return;
+            }
         }
-        // 單擊：記錄時間位置供下次雙擊判斷
         app.last_click_time = Some(now);
         app.last_click_pos = Some((mx, my));
 
         match app.tool {
             Tool::Select => {
-                // 找最近的 Structure 或 CheckPoint
                 let mut best: Option<(Selection, f32)> = None;
                 for (i, st) in app.map.Structures.iter().enumerate() {
                     let (sx, sy) = world_to_screen(app, &rect, st.X, st.Y);
@@ -162,8 +169,31 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         }
                     }
                 }
+                for (ri, region) in app.map.BlockedRegions.iter().enumerate() {
+                    for (pi, p) in region.Points.iter().enumerate() {
+                        let (sx, sy) = world_to_screen(app, &rect, p.X, p.Y);
+                        let d2 = (sx - mx).powi(2) + (sy - my).powi(2);
+                        if d2 < 8.0 * 8.0 {
+                            if best.map(|(_, d)| d2 < d).unwrap_or(true) {
+                                best = Some((Selection::BlockedRegionPoint(ri, pi), d2));
+                            }
+                        }
+                    }
+                }
+                if best.is_none() {
+                    for (ri, region) in app.map.BlockedRegions.iter().enumerate() {
+                        let poly: Vec<(f32, f32)> = region
+                            .Points
+                            .iter()
+                            .map(|p| world_to_screen(app, &rect, p.X, p.Y))
+                            .collect();
+                        if point_in_polygon(mx, my, &poly) {
+                            best = Some((Selection::BlockedRegion(ri), 0.0));
+                            break;
+                        }
+                    }
+                }
                 app.selection = best.map(|(s, _)| s).unwrap_or(Selection::None);
-                // 若選中某物，開始拖拉
                 if app.selection != Selection::None {
                     let (ox, oy) = match app.selection {
                         Selection::Structure(i) => {
@@ -173,6 +203,10 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         Selection::CheckPoint(i) => {
                             let c = &app.map.CheckPoint[i];
                             (c.X, c.Y)
+                        }
+                        Selection::BlockedRegionPoint(ri, pi) => {
+                            let p = &app.map.BlockedRegions[ri].Points[pi];
+                            (p.X, p.Y)
                         }
                         _ => (0.0, 0.0),
                     };
@@ -203,7 +237,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             Tool::AddCheckPoint => {
                 let (wx, wy) = screen_to_world(app, &rect, mx, my);
                 let idx = app.map.CheckPoint.len();
-                app.map.CheckPoint.push(crate::schema::CheckPointJD {
+                app.map.CheckPoint.push(CheckPointJD {
                     Name: format!("cp_{}", idx),
                     Class: "Path".to_string(),
                     X: wx.round(),
@@ -212,10 +246,41 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 app.dirty = true;
                 app.selection = Selection::CheckPoint(idx);
             }
+            Tool::AddBlockedRegion => {
+                let (wx, wy) = screen_to_world(app, &rect, mx, my);
+                app.region_draft.push(PointJD {
+                    X: wx.round(),
+                    Y: wy.round(),
+                });
+            }
+            Tool::EditBlockedRegion => {
+                let mut best: Option<(usize, usize, f32)> = None;
+                for (ri, region) in app.map.BlockedRegions.iter().enumerate() {
+                    for (pi, p) in region.Points.iter().enumerate() {
+                        let (sx, sy) = world_to_screen(app, &rect, p.X, p.Y);
+                        let d2 = (sx - mx).powi(2) + (sy - my).powi(2);
+                        if d2 < 12.0 * 12.0 {
+                            if best.map(|(_, _, d)| d2 < d).unwrap_or(true) {
+                                best = Some((ri, pi, d2));
+                            }
+                        }
+                    }
+                }
+                if let Some((ri, pi, _)) = best {
+                    app.selection = Selection::BlockedRegionPoint(ri, pi);
+                    let p = &app.map.BlockedRegions[ri].Points[pi];
+                    app.drag_state = Some(DragState {
+                        sel: app.selection,
+                        orig_world_x: p.X,
+                        orig_world_y: p.Y,
+                        start_mouse_x: mx,
+                        start_mouse_y: my,
+                    });
+                }
+            }
         }
     }
 
-    // 拖拉移動
     if let Some(ds) = app.drag_state {
         if ui.ctx().input().mouse_down {
             let dx = (mx - ds.start_mouse_x) / app.zoom;
@@ -237,6 +302,18 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         app.dirty = true;
                     }
                 }
+                Selection::BlockedRegionPoint(ri, pi) => {
+                    if let Some(p) = app
+                        .map
+                        .BlockedRegions
+                        .get_mut(ri)
+                        .and_then(|r| r.Points.get_mut(pi))
+                    {
+                        p.X = new_x;
+                        p.Y = new_y;
+                        app.dirty = true;
+                    }
+                }
                 _ => {}
             }
         } else {
@@ -245,7 +322,102 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     }
 }
 
-/// 同 screen_to_world 但用指定 zoom（用於 zoom 中心校正）
+fn commit_region_draft(app: &mut AppState) {
+    if app.region_draft.len() >= 3 {
+        let idx = app.map.BlockedRegions.len();
+        app.map.BlockedRegions.push(BlockedRegionJD {
+            Name: format!("region_{}", idx),
+            Points: std::mem::take(&mut app.region_draft),
+        });
+        app.dirty = true;
+        app.selection = Selection::BlockedRegion(idx);
+    } else {
+        app.region_draft.clear();
+    }
+}
+
+fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
+    let fill = rgba(1.0, 0.2, 0.2, 0.25);
+    let fill_sel = rgba(1.0, 0.8, 0.2, 0.35);
+    let edge = rgba(1.0, 0.3, 0.3, 0.95);
+    let vertex = rgba(1.0, 0.9, 0.4, 1.0);
+    let vertex_sel = rgba(1.0, 1.0, 1.0, 1.0);
+
+    for (ri, region) in app.map.BlockedRegions.iter().enumerate() {
+        let selected_region = matches!(app.selection, Selection::BlockedRegion(i) if i == ri)
+            || matches!(app.selection, Selection::BlockedRegionPoint(r, _) if r == ri);
+        let n = region.Points.len();
+        if n < 2 {
+            continue;
+        }
+        let pts: Vec<(f32, f32)> = region
+            .Points
+            .iter()
+            .map(|p| world_to_screen(app, rect, p.X, p.Y))
+            .collect();
+        let _f = if selected_region { fill_sel } else { fill };
+        // TODO: eui Context 尚無 paint_triangle；暫僅畫邊線，待 eui 補上 fan-fill 後
+        // 再恢復填色。
+        for i in 0..n {
+            let a = pts[i];
+            let b = pts[(i + 1) % n];
+            ui.ctx()
+                .paint_line(a.0, a.1, b.0, b.1, edge, if selected_region { 2.5 } else { 1.5 });
+        }
+        for (pi, (sx, sy)) in pts.iter().enumerate() {
+            let sel_pt = matches!(
+                app.selection,
+                Selection::BlockedRegionPoint(r, p) if r == ri && p == pi
+            );
+            let r = if sel_pt { 6.0 } else { 4.0 };
+            let c = if sel_pt { vertex_sel } else { vertex };
+            let rc = Rect::new(sx - r, sy - r, r * 2.0, r * 2.0);
+            ui.paint_filled_rect(rc, c, r);
+        }
+        if n > 0 {
+            ui.text(&region.Name)
+                .rect(Rect::new(pts[0].0 + 6.0, pts[0].1 - 14.0, 100.0, 14.0))
+                .color(Color::WHITE)
+                .font_size(12.0)
+                .draw();
+        }
+    }
+}
+
+fn draw_region_draft(ui: &mut UI, rect: &Rect, app: &AppState) {
+    let color = rgba(1.0, 1.0, 0.3, 0.9);
+    let mut prev: Option<(f32, f32)> = None;
+    for p in &app.region_draft {
+        let (sx, sy) = world_to_screen(app, rect, p.X, p.Y);
+        let rc = Rect::new(sx - 4.0, sy - 4.0, 8.0, 8.0);
+        ui.paint_filled_rect(rc, color, 4.0);
+        if let Some((px, py)) = prev {
+            ui.ctx().paint_line(px, py, sx, sy, color, 2.0);
+        }
+        prev = Some((sx, sy));
+    }
+    if let Some((px, py)) = prev {
+        let mx = ui.ctx().input().mouse_x;
+        let my = ui.ctx().input().mouse_y;
+        ui.ctx()
+            .paint_line(px, py, mx, my, rgba(1.0, 1.0, 0.3, 0.4), 1.5);
+    }
+}
+
+fn draw_circle(ui: &mut UI, cx: f32, cy: f32, r_px: f32, color: Color) {
+    const SEG: usize = 24;
+    let mut prev: Option<(f32, f32)> = None;
+    for i in 0..=SEG {
+        let t = (i as f32) / (SEG as f32) * std::f32::consts::TAU;
+        let x = cx + r_px * t.cos();
+        let y = cy + r_px * t.sin();
+        if let Some((px, py)) = prev {
+            ui.ctx().paint_line(px, py, x, y, color, 1.0);
+        }
+        prev = Some((x, y));
+    }
+}
+
 fn screen_to_world_raw(app: &AppState, rect: &Rect, sx: f32, sy: f32, zoom: f32) -> (f32, f32) {
     let cx = rect.x + rect.w * 0.5;
     let cy = rect.y + rect.h * 0.5;
@@ -254,7 +426,6 @@ fn screen_to_world_raw(app: &AppState, rect: &Rect, sx: f32, sy: f32, zoom: f32)
     (wx, wy)
 }
 
-/// 嘗試將雙擊位置插入到最近 path 區段；若多條 path 共用該線段（A↔B 或 B↔A），都會插入。
 fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool {
     const THRESHOLD_PX: f32 = 15.0;
     let cp_index: std::collections::HashMap<String, usize> = app
@@ -265,8 +436,7 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
         .map(|(i, c)| (c.Name.clone(), i))
         .collect();
 
-    // Step 1：找最近的一段，取得兩端 checkpoint 名字
-    let mut best: Option<(String, String, f32)> = None; // (a_name, b_name, dist_px)
+    let mut best: Option<(String, String, f32)> = None;
     for path in app.map.Path.iter() {
         if path.Points.len() < 2 {
             continue;
@@ -304,7 +474,6 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
         None => return false,
     };
 
-    // Step 2：建立新 CheckPoint
     let (wx, wy) = screen_to_world(app, rect, mx, my);
     let mut n = app.map.CheckPoint.len();
     let new_name = loop {
@@ -321,13 +490,11 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
         Y: wy.round(),
     });
 
-    // Step 3：把新點插入所有含 (a,b) 或 (b,a) 連續對的 path（保持方向）
     let mut inserted_any = false;
     for path in app.map.Path.iter_mut() {
         if path.Points.len() < 2 {
             continue;
         }
-        // 從後往前掃，避免多段剛好同名對時 index 錯亂
         let mut i = path.Points.len().saturating_sub(2);
         loop {
             let p0 = &path.Points[i];
@@ -349,30 +516,14 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
         app.selection = Selection::CheckPoint(app.map.CheckPoint.len() - 1);
         true
     } else {
-        // 沒有任何 path 實際含這段（不可能，但保險處理）— 移除剛加的 cp
         app.map.CheckPoint.pop();
         false
     }
 }
 
-/// 點 (px, py) 到線段 (ax,ay)-(bx,by) 的距離
-fn point_segment_dist(px: f32, py: f32, ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
-    let dx = bx - ax;
-    let dy = by - ay;
-    let len2 = dx * dx + dy * dy;
-    if len2 < 0.0001 {
-        return ((px - ax).powi(2) + (py - ay).powi(2)).sqrt();
-    }
-    let t = (((px - ax) * dx + (py - ay) * dy) / len2).clamp(0.0, 1.0);
-    let cx = ax + t * dx;
-    let cy = ay + t * dy;
-    ((px - cx).powi(2) + (py - cy).powi(2)).sqrt()
-}
-
 fn draw_grid(ui: &mut UI, rect: &Rect, app: &AppState) {
     let color = rgba(0.25, 0.28, 0.30, 1.0);
     let step = 100.0_f32;
-    // 計算 viewport 的世界座標範圍
     let (wx0, wy0) = screen_to_world(app, rect, rect.x, rect.y + rect.h);
     let (wx1, wy1) = screen_to_world(app, rect, rect.x + rect.w, rect.y);
     let x_start = (wx0 / step).floor() as i32;
@@ -393,7 +544,6 @@ fn draw_grid(ui: &mut UI, rect: &Rect, app: &AppState) {
             ui.ctx().paint_line(rect.x, sy, rect.x + rect.w, sy, color, 1.0);
         }
     }
-    // 原點十字
     let (ox, oy) = world_to_screen(app, rect, 0.0, 0.0);
     let axis_c = rgba(0.6, 0.6, 0.3, 1.0);
     ui.ctx().paint_line(ox - 20.0, oy, ox + 20.0, oy, axis_c, 1.5);
@@ -401,7 +551,6 @@ fn draw_grid(ui: &mut UI, rect: &Rect, app: &AppState) {
 }
 
 fn draw_paths(ui: &mut UI, rect: &Rect, app: &AppState) {
-    // 建 name -> index 查表
     let cp_map: std::collections::HashMap<&str, &crate::schema::CheckPointJD> = app
         .map
         .CheckPoint

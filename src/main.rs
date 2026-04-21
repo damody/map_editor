@@ -1,5 +1,7 @@
 mod app;
 mod canvas;
+mod entity_schema;
+mod geometry;
 mod io;
 mod panels;
 mod schema;
@@ -41,6 +43,13 @@ fn main() {
                 state.current_path = Some(p);
                 if let Some(t) = state.map.Tower.first() {
                     state.new_tower_template = t.Name.clone();
+                }
+                // 嘗試同目錄下的 entity.json 一併載入
+                if let Some(path_buf) = state.current_path.clone() {
+                    if let Some((ep, ed)) = io::try_load_sibling_entity(&path_buf) {
+                        state.entity = ed;
+                        state.entity_path = Some(ep);
+                    }
                 }
             }
             Err(e) => eprintln!("Failed to parse {}: {}", path, e),

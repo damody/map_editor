@@ -1,3 +1,4 @@
+use crate::entity_schema::EntityConfig;
 use crate::schema::CreepWaveData;
 use std::path::PathBuf;
 
@@ -32,6 +33,44 @@ pub fn save_to(path: &PathBuf, data: &CreepWaveData) -> Result<(), String> {
 
 pub fn strip_json_comments_public(src: &str) -> String {
     strip_json_comments(src)
+}
+
+/// 開啟 entity.json 檔案對話框並載入。
+pub fn pick_and_load_entity() -> Result<(PathBuf, EntityConfig), String> {
+    let path = rfd::FileDialog::new()
+        .add_filter("Entity JSON", &["json"])
+        .set_title("Open entity.json")
+        .pick_file()
+        .ok_or_else(|| "User cancelled".to_string())?;
+    let bytes = std::fs::read_to_string(&path).map_err(|e| format!("read: {}", e))?;
+    let cleaned = strip_json_comments(&bytes);
+    let data: EntityConfig =
+        serde_json::from_str(&cleaned).map_err(|e| format!("parse: {}", e))?;
+    Ok((path, data))
+}
+
+/// 嘗試依 map.json 路徑旁邊自動載入同目錄下的 entity.json（沒有就傳 None）。
+pub fn try_load_sibling_entity(map_path: &PathBuf) -> Option<(PathBuf, EntityConfig)> {
+    let p = map_path.parent()?.join("entity.json");
+    if !p.exists() {
+        return None;
+    }
+    let bytes = std::fs::read_to_string(&p).ok()?;
+    let cleaned = strip_json_comments(&bytes);
+    let data: EntityConfig = serde_json::from_str(&cleaned).ok()?;
+    Some((p, data))
+}
+
+pub fn save_entity_to(path: &PathBuf, data: &EntityConfig) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data).map_err(|e| format!("serialize: {}", e))?;
+    std::fs::write(path, json).map_err(|e| format!("write: {}", e))
+}
+
+pub fn pick_save_entity_path() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .add_filter("Entity JSON", &["json"])
+        .set_title("Save entity.json")
+        .save_file()
 }
 
 /// 移除 C-style 註解（// 和 /* */），保留字串內容
