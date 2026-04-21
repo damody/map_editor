@@ -1,5 +1,6 @@
 use crate::entity_schema::EntityConfig;
 use crate::schema::{CreepWaveData, PointJD};
+use crate::undo::{Snapshot, UndoStack};
 
 /// 選中物件
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +90,17 @@ pub struct AppState {
     pub prev_mouse_screen: Option<(f32, f32)>,
     pub last_click_time: Option<std::time::Instant>,
     pub last_click_pos: Option<(f32, f32)>,
+
+    /// AddCheckPoint 模式中正在連續繪製的路徑索引；切換工具時重置
+    pub current_path_idx: Option<usize>,
+
+    /// 右側 Inspector 面板寬度（px），可被分隔條拖拉調整
+    pub inspector_w: f32,
+    /// Inspector 分隔條拖拉中的起始寬度（拖拉起始時記 None → Some）
+    pub inspector_resize_start: Option<(f32, f32)>, // (start_mouse_x, start_width)
+
+    /// Undo/Redo 堆疊
+    pub undo: UndoStack,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -128,6 +140,42 @@ impl Default for AppState {
             prev_mouse_screen: None,
             last_click_time: None,
             last_click_pos: None,
+            current_path_idx: None,
+            inspector_w: crate::style::RIGHT_W,
+            inspector_resize_start: None,
+            undo: UndoStack::new(),
         }
+    }
+}
+
+impl AppState {
+    /// 在每次修改 map/entity/selection 之前呼叫，將當前狀態壓入 undo 堆疊。
+    /// tag=Some(...)：同 tag 在同一 group 內只 push 一次（slider / drag 合併）。
+    /// tag=None：一次性操作（新增 / 刪除等），每次都 push。
+    pub fn begin_edit(&mut self, tag: Option<&str>) {
+        let snap = Snapshot {
+            map: self.map.clone(),
+            entity: self.entity.clone(),
+            selection: self.selection,
+        };
+        self.undo.push(snap, tag);
+    }
+
+    pub fn current_snapshot(&self) -> Snapshot {
+        Snapshot {
+            map: self.map.clone(),
+            entity: self.entity.clone(),
+            selection: self.selection,
+        }
+    }
+
+    pub fn apply_snapshot(&mut self, snap: Snapshot) {
+        self.map = snap.map;
+        self.entity = snap.entity;
+        self.selection = snap.selection;
+        self.dirty = true;
+        self.entity_dirty = true;
+        self.drag_state = None;
+        self.region_draft.clear();
     }
 }

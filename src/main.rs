@@ -6,6 +6,7 @@ mod io;
 mod panels;
 mod schema;
 mod style;
+mod undo;
 
 use eui::{AppOptions, Rect};
 
@@ -94,11 +95,41 @@ fn main() {
         let bg = ui.theme().background;
         ui.paint_filled_rect(content, bg, 0.0);
 
-        // 佈局：toolbar (頂), waves (底), 中間 left templates | canvas | right inspector
+        // ── Undo/Redo 快捷鍵處理 ──────────────────────────────
+        let input_snapshot = ui.ctx().input().clone();
+        if input_snapshot.key_undo {
+            let cur = state.current_snapshot();
+            if let Some(snap) = state.undo.undo(cur) {
+                state.apply_snapshot(snap);
+            }
+        }
+        if input_snapshot.key_redo {
+            let cur = state.current_snapshot();
+            if let Some(snap) = state.undo.redo(cur) {
+                state.apply_snapshot(snap);
+            }
+        }
+        // 滑鼠 press / release 或快捷鍵觸發後切分 coalesce group
+        if input_snapshot.mouse_pressed
+            || input_snapshot.mouse_released
+            || input_snapshot.key_undo
+            || input_snapshot.key_redo
+        {
+            state.undo.end_group();
+        }
+
+        // 佈局：toolbar (頂), waves (底), 中間 left templates | canvas | splitter | inspector
         let toolbar_h = style::TOOLBAR_H;
         let waves_h = style::WAVES_H;
         let left_w = style::LEFT_W;
-        let right_w = style::RIGHT_W;
+
+        // 夾住 inspector 寬度於合理範圍
+        let min_w = style::INSPECTOR_MIN_W;
+        let middle_w = content.w - left_w;
+        let max_w = (middle_w - 200.0).max(min_w); // canvas 至少 200px
+        state.inspector_w = state.inspector_w.clamp(min_w, max_w);
+        let right_w = state.inspector_w;
+        let splitter_w = style::SPLITTER_W;
 
         let toolbar_rect = Rect::new(content.x, content.y, content.w, toolbar_h);
         let waves_rect = Rect::new(
@@ -114,16 +145,18 @@ fn main() {
             (content.h - toolbar_h - waves_h).max(0.0),
         );
         let templates_rect = Rect::new(middle_rect.x, middle_rect.y, left_w, middle_rect.h);
-        let inspector_rect = Rect::new(
-            middle_rect.x + middle_rect.w - right_w,
+        let inspector_x = middle_rect.x + middle_rect.w - right_w;
+        let splitter_rect = Rect::new(
+            inspector_x - splitter_w,
             middle_rect.y,
-            right_w,
+            splitter_w,
             middle_rect.h,
         );
+        let inspector_rect = Rect::new(inspector_x, middle_rect.y, right_w, middle_rect.h);
         let canvas_rect = Rect::new(
             middle_rect.x + left_w,
             middle_rect.y,
-            middle_rect.w - left_w - right_w,
+            (middle_rect.w - left_w - right_w - splitter_w).max(0.0),
             middle_rect.h,
         );
 
@@ -132,5 +165,31 @@ fn main() {
         panels::inspector::draw(ui, inspector_rect, &mut state);
         panels::waves::draw(ui, waves_rect, &mut state);
         canvas::draw(ui, canvas_rect, &mut state);
+
+        // ── 分隔條（可拖拉調整 inspector 寬度）──────────────
+        let splitter_color = eui::rgba(0.30, 0.33, 0.36, 1.0);
+        let splitter_color_hover = eui::rgba(0.55, 0.60, 0.65, 1.0);
+        let mx = input_snapshot.mouse_x;
+        let my = input_snapshot.mouse_y;
+        let hover = splitter_rect.contains(mx, my);
+        let dragging = state.inspector_resize_start.is_some();
+        ui.paint_filled_rect(
+            splitter_rect,
+            if hover || dragging { splitter_color_hover } else { splitter_color },
+            0.0,
+        );
+
+        if hover && input_snapshot.mouse_pressed {
+            state.inspector_resize_start = Some((mx, state.inspector_w));
+        }
+        if let Some((start_mx, start_w)) = state.inspector_resize_start {
+            if input_snapshot.mouse_down {
+                // 拖動：滑鼠往左 → 寬度變大；往右 → 寬度變小
+                let new_w = (start_w + (start_mx - mx)).clamp(min_w, max_w);
+                state.inspector_w = new_w;
+            } else {
+                state.inspector_resize_start = None;
+            }
+        }
     }, opts);
 }

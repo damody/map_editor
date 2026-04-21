@@ -41,6 +41,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         app.current_path = Some(path);
                         app.dirty = false;
                         app.selection = crate::app::Selection::None;
+                        app.undo.clear();
                         if let Some(t) = app.map.Tower.first() {
                             app.new_tower_template = t.Name.clone();
                         }
