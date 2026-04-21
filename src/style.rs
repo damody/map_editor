@@ -31,3 +31,14 @@ const BASE_LH_HEAD: f32 = 28.0;  // 面板主標題行高
 
 pub const LH_LABEL: f32 = BASE_LH_LABEL * UI_SCALE;
 pub const LH_HEAD: f32 = BASE_LH_HEAD * UI_SCALE;
+
+// ---- Top-level panel dimensions (main.rs layout) ----
+const BASE_TOOLBAR_H: f32 = 44.0;
+const BASE_WAVES_H: f32 = 60.0;
+const BASE_LEFT_W: f32 = 240.0;
+const BASE_RIGHT_W: f32 = 280.0;
+
+pub const TOOLBAR_H: f32 = BASE_TOOLBAR_H * UI_SCALE;
+pub const WAVES_H: f32 = BASE_WAVES_H * UI_SCALE;
+pub const LEFT_W: f32 = BASE_LEFT_W * UI_SCALE;
+pub const RIGHT_W: f32 = BASE_RIGHT_W * UI_SCALE;

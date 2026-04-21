@@ -95,10 +95,10 @@ fn main() {
         ui.paint_filled_rect(content, bg, 0.0);
 
         // 佈局：toolbar (頂), waves (底), 中間 left templates | canvas | right inspector
-        let toolbar_h = 44.0;
-        let waves_h = 60.0;
-        let left_w = 240.0;
-        let right_w = 280.0;
+        let toolbar_h = style::TOOLBAR_H;
+        let waves_h = style::WAVES_H;
+        let left_w = style::LEFT_W;
+        let right_w = style::RIGHT_W;
 
         let toolbar_rect = Rect::new(content.x, content.y, content.w, toolbar_h);
         let waves_rect = Rect::new(
