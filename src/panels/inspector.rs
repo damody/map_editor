@@ -6,7 +6,7 @@ use eui::{Rect, TextAlign};
 use crate::app::{AppState, Selection};
 use crate::style::{
     FS_BODY, FS_BODY_SM, FS_FIELD_LABEL, FS_FIELD_VALUE, FS_HEAD, FS_LABEL, FS_SLIDER_VALUE,
-    FS_SUBHEAD, H_FIELD, H_SLIDER_BAR_MAX, LH_FIELD_LABEL, LH_HEAD,
+    FS_SUBHEAD, H_FIELD, LH_FIELD_LABEL, LH_HEAD,
 };
 
 /// CheckPoint.Class 可選項目（第一項為預設）
@@ -82,32 +82,32 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     });
 }
 
-/// f32 欄位 slider；回傳是否有變動
+/// f32 欄位：純數字 textbox（無 slider bar），失焦時 clamp 與 round
 fn slider_f32(ui: &mut UI, label: &str, v: &mut f32, min: f32, max: f32) -> bool {
     let changed = ui
-        .slider(label, v)
+        .numeric_field(label, v)
         .range(min, max)
+        .decimals(0)
         .label_font_size(FS_FIELD_LABEL)
         .label_height(LH_FIELD_LABEL)
         .height(H_FIELD)
         .value_font_size(FS_SLIDER_VALUE)
-        .max_bar_height(H_SLIDER_BAR_MAX)
         .draw();
     if changed { *v = v.round(); }
     changed
 }
 
-/// Option<f32> 欄位：用 slider 調整值，0 → None
+/// Option<f32> 欄位：純數字 textbox，0 → None
 fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: f32) -> bool {
     let mut val = v.unwrap_or(0.0);
     let changed = ui
-        .slider(label, &mut val)
+        .numeric_field(label, &mut val)
         .range(min, max)
+        .decimals(0)
         .label_font_size(FS_FIELD_LABEL)
         .label_height(LH_FIELD_LABEL)
         .height(H_FIELD)
         .value_font_size(FS_SLIDER_VALUE)
-        .max_bar_height(H_SLIDER_BAR_MAX)
         .draw();
     if changed {
         val = val.round();
@@ -116,17 +116,17 @@ fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: 
     changed
 }
 
-/// i32 欄位：透過 f32 slider 折射
+/// i32 欄位：純數字 textbox，透過 f32 折射
 fn slider_i32(ui: &mut UI, label: &str, v: &mut i32, min: i32, max: i32) -> bool {
     let mut f = *v as f32;
     let changed = ui
-        .slider(label, &mut f)
+        .numeric_field(label, &mut f)
         .range(min as f32, max as f32)
+        .decimals(0)
         .label_font_size(FS_FIELD_LABEL)
         .label_height(LH_FIELD_LABEL)
         .height(H_FIELD)
         .value_font_size(FS_SLIDER_VALUE)
-        .max_bar_height(H_SLIDER_BAR_MAX)
         .draw();
     if changed { *v = f.round() as i32; }
     changed
