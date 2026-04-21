@@ -47,6 +47,9 @@ pub struct AppState {
     pub new_tower_is_base: bool,
     /// Pan 用：記上一 frame 滑鼠座標（中鍵按住時計算 delta）
     pub prev_mouse_screen: Option<(f32, f32)>,
+    /// 雙擊偵測用：上次左鍵按下時間、位置
+    pub last_click_time: Option<std::time::Instant>,
+    pub last_click_pos: Option<(f32, f32)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -73,6 +76,8 @@ impl Default for AppState {
             new_tower_faction: "Player".to_string(),
             new_tower_is_base: false,
             prev_mouse_screen: None,
+            last_click_time: None,
+            last_click_pos: None,
         }
     }
 }

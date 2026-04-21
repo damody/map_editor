@@ -3,7 +3,7 @@ use eui::quick::ui::UI;
 use eui::{rgba, Color, Rect};
 
 use crate::app::{AppState, DragState, Selection, Tool};
-use crate::schema::StructureJD;
+use crate::schema::{CheckPointJD, StructureJD};
 
 /// 世界座標 → 螢幕像素（在 rect 內）
 pub fn world_to_screen(app: &AppState, rect: &Rect, wx: f32, wy: f32) -> (f32, f32) {
@@ -117,8 +117,28 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         }
     }
 
-    // 左鍵：依 tool 決定行為
+    // 左鍵：依 tool 決定行為（先檢查雙擊插入 checkpoint）
     if in_canvas && ui.ctx().input().mouse_pressed {
+        let now = std::time::Instant::now();
+        let is_double = match (app.last_click_time, app.last_click_pos) {
+            (Some(t), Some((px, py))) => {
+                now.duration_since(t).as_millis() < 400
+                    && (mx - px).abs() < 8.0
+                    && (my - py).abs() < 8.0
+            }
+            _ => false,
+        };
+
+        if is_double && try_insert_on_path(app, &rect, mx, my) {
+            // 雙擊且成功插入：清除計時避免下一次又觸發
+            app.last_click_time = None;
+            app.last_click_pos = None;
+            return;
+        }
+        // 單擊：記錄時間位置供下次雙擊判斷
+        app.last_click_time = Some(now);
+        app.last_click_pos = Some((mx, my));
+
         match app.tool {
             Tool::Select => {
                 // 找最近的 Structure 或 CheckPoint
@@ -232,6 +252,121 @@ fn screen_to_world_raw(app: &AppState, rect: &Rect, sx: f32, sy: f32, zoom: f32)
     let wx = (sx - cx) / zoom + app.pan.0;
     let wy = -((sy - cy) / zoom + app.pan.1);
     (wx, wy)
+}
+
+/// 嘗試將雙擊位置插入到最近 path 區段；若多條 path 共用該線段（A↔B 或 B↔A），都會插入。
+fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool {
+    const THRESHOLD_PX: f32 = 15.0;
+    let cp_index: std::collections::HashMap<String, usize> = app
+        .map
+        .CheckPoint
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.Name.clone(), i))
+        .collect();
+
+    // Step 1：找最近的一段，取得兩端 checkpoint 名字
+    let mut best: Option<(String, String, f32)> = None; // (a_name, b_name, dist_px)
+    for path in app.map.Path.iter() {
+        if path.Points.len() < 2 {
+            continue;
+        }
+        for i in 0..path.Points.len() - 1 {
+            let a_name = &path.Points[i];
+            let b_name = &path.Points[i + 1];
+            let a = match cp_index
+                .get(a_name)
+                .and_then(|&idx| app.map.CheckPoint.get(idx))
+            {
+                Some(c) => c,
+                None => continue,
+            };
+            let b = match cp_index
+                .get(b_name)
+                .and_then(|&idx| app.map.CheckPoint.get(idx))
+            {
+                Some(c) => c,
+                None => continue,
+            };
+            let (ax, ay) = world_to_screen(app, rect, a.X, a.Y);
+            let (bx, by) = world_to_screen(app, rect, b.X, b.Y);
+            let d = point_segment_dist(mx, my, ax, ay, bx, by);
+            if d < THRESHOLD_PX {
+                if best.as_ref().map(|(_, _, bd)| d < *bd).unwrap_or(true) {
+                    best = Some((a_name.clone(), b_name.clone(), d));
+                }
+            }
+        }
+    }
+
+    let (a_name, b_name, _) = match best {
+        Some(x) => x,
+        None => return false,
+    };
+
+    // Step 2：建立新 CheckPoint
+    let (wx, wy) = screen_to_world(app, rect, mx, my);
+    let mut n = app.map.CheckPoint.len();
+    let new_name = loop {
+        let cand = format!("cp_{}", n);
+        if !app.map.CheckPoint.iter().any(|c| c.Name == cand) {
+            break cand;
+        }
+        n += 1;
+    };
+    app.map.CheckPoint.push(CheckPointJD {
+        Name: new_name.clone(),
+        Class: "Path".to_string(),
+        X: wx.round(),
+        Y: wy.round(),
+    });
+
+    // Step 3：把新點插入所有含 (a,b) 或 (b,a) 連續對的 path（保持方向）
+    let mut inserted_any = false;
+    for path in app.map.Path.iter_mut() {
+        if path.Points.len() < 2 {
+            continue;
+        }
+        // 從後往前掃，避免多段剛好同名對時 index 錯亂
+        let mut i = path.Points.len().saturating_sub(2);
+        loop {
+            let p0 = &path.Points[i];
+            let p1 = &path.Points[i + 1];
+            let hit = (p0 == &a_name && p1 == &b_name) || (p0 == &b_name && p1 == &a_name);
+            if hit {
+                path.Points.insert(i + 1, new_name.clone());
+                inserted_any = true;
+            }
+            if i == 0 {
+                break;
+            }
+            i -= 1;
+        }
+    }
+
+    if inserted_any {
+        app.dirty = true;
+        app.selection = Selection::CheckPoint(app.map.CheckPoint.len() - 1);
+        true
+    } else {
+        // 沒有任何 path 實際含這段（不可能，但保險處理）— 移除剛加的 cp
+        app.map.CheckPoint.pop();
+        false
+    }
+}
+
+/// 點 (px, py) 到線段 (ax,ay)-(bx,by) 的距離
+fn point_segment_dist(px: f32, py: f32, ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let dx = bx - ax;
+    let dy = by - ay;
+    let len2 = dx * dx + dy * dy;
+    if len2 < 0.0001 {
+        return ((px - ax).powi(2) + (py - ay).powi(2)).sqrt();
+    }
+    let t = (((px - ax) * dx + (py - ay) * dy) / len2).clamp(0.0, 1.0);
+    let cx = ax + t * dx;
+    let cy = ay + t * dy;
+    ((px - cx).powi(2) + (py - cy).powi(2)).sqrt()
 }
 
 fn draw_grid(ui: &mut UI, rect: &Rect, app: &AppState) {
