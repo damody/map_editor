@@ -91,12 +91,17 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     let my = ui.ctx().input().mouse_y;
     let in_canvas = point_in_rect(&rect, mx, my);
 
-    // pan: 右鍵拖拉
-    if in_canvas && ui.ctx().input().mouse_right_down {
-        // mouse delta 從前一個 frame：eui 不直接給 delta，用 mouse_wheel 和 mouse_down 狀態近似
-        // 簡化：按下右鍵時，直接讓 pan 跟著 mouse 變化（用相對初始位置保存）
-        // 實作為：儲存起始 mouse 和 pan，按住期間持續更新
+    // Pan：中鍵拖拉。用上一 frame 的滑鼠位置算 delta，除以 zoom 換算成世界座標。
+    if ui.ctx().input().mouse_middle_down {
+        if let Some((px, py)) = app.prev_mouse_screen {
+            let dx_screen = mx - px;
+            let dy_screen = my - py;
+            app.pan.0 -= dx_screen / app.zoom;
+            app.pan.1 -= dy_screen / app.zoom;
+        }
     }
+    // 更新 prev（不論是否在 canvas 內都記，拖出去再拖回來才不會跳）
+    app.prev_mouse_screen = Some((mx, my));
 
     // zoom: wheel
     if in_canvas {

@@ -45,6 +45,8 @@ pub struct AppState {
     pub new_tower_template: String,
     pub new_tower_faction: String, // "Player" or "Enemy"
     pub new_tower_is_base: bool,
+    /// Pan 用：記上一 frame 滑鼠座標（中鍵按住時計算 delta）
+    pub prev_mouse_screen: Option<(f32, f32)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -70,6 +72,7 @@ impl Default for AppState {
             new_tower_template: String::new(),
             new_tower_faction: "Player".to_string(),
             new_tower_is_base: false,
+            prev_mouse_screen: None,
         }
     }
 }
