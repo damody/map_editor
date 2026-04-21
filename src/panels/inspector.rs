@@ -2,7 +2,20 @@ use eui::quick::ui::UI;
 use eui::Rect;
 
 use crate::app::{AppState, Selection};
-use crate::style::{FS_BODY, FS_BODY_SM, FS_HEAD, FS_LABEL, FS_SUBHEAD, LH_HEAD};
+use crate::style::{
+    FS_BODY, FS_BODY_SM, FS_FIELD_LABEL, FS_FIELD_VALUE, FS_HEAD, FS_LABEL, FS_SLIDER_VALUE,
+    FS_SUBHEAD, H_FIELD, H_SLIDER_BAR_MAX, LH_FIELD_LABEL, LH_HEAD,
+};
+
+/// 包裝 ui.input：套用本專案的放大 label / 行高 / 值字級
+fn input_str(ui: &mut UI, label: &str, v: &mut String) -> bool {
+    ui.input(label, v)
+        .label_font_size(FS_FIELD_LABEL)
+        .label_height(LH_FIELD_LABEL)
+        .height(H_FIELD)
+        .value_font_size(FS_FIELD_VALUE)
+        .draw()
+}
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -38,7 +51,15 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
 
 /// f32 欄位 slider；回傳是否有變動
 fn slider_f32(ui: &mut UI, label: &str, v: &mut f32, min: f32, max: f32) -> bool {
-    let changed = ui.slider(label, v).range(min, max).draw();
+    let changed = ui
+        .slider(label, v)
+        .range(min, max)
+        .label_font_size(FS_FIELD_LABEL)
+        .label_height(LH_FIELD_LABEL)
+        .height(H_FIELD)
+        .value_font_size(FS_SLIDER_VALUE)
+        .max_bar_height(H_SLIDER_BAR_MAX)
+        .draw();
     if changed { *v = v.round(); }
     changed
 }
@@ -46,7 +67,15 @@ fn slider_f32(ui: &mut UI, label: &str, v: &mut f32, min: f32, max: f32) -> bool
 /// Option<f32> 欄位：用 slider 調整值，0 → None
 fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: f32) -> bool {
     let mut val = v.unwrap_or(0.0);
-    let changed = ui.slider(label, &mut val).range(min, max).draw();
+    let changed = ui
+        .slider(label, &mut val)
+        .range(min, max)
+        .label_font_size(FS_FIELD_LABEL)
+        .label_height(LH_FIELD_LABEL)
+        .height(H_FIELD)
+        .value_font_size(FS_SLIDER_VALUE)
+        .max_bar_height(H_SLIDER_BAR_MAX)
+        .draw();
     if changed {
         val = val.round();
         *v = if val <= 0.0 { None } else { Some(val) };
@@ -57,7 +86,15 @@ fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: 
 /// i32 欄位：透過 f32 slider 折射
 fn slider_i32(ui: &mut UI, label: &str, v: &mut i32, min: i32, max: i32) -> bool {
     let mut f = *v as f32;
-    let changed = ui.slider(label, &mut f).range(min as f32, max as f32).draw();
+    let changed = ui
+        .slider(label, &mut f)
+        .range(min as f32, max as f32)
+        .label_font_size(FS_FIELD_LABEL)
+        .label_height(LH_FIELD_LABEL)
+        .height(H_FIELD)
+        .value_font_size(FS_SLIDER_VALUE)
+        .max_bar_height(H_SLIDER_BAR_MAX)
+        .draw();
     if changed { *v = f.round() as i32; }
     changed
 }
@@ -69,8 +106,8 @@ fn draw_structure(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.spacer(4.0);
 
     let mut changed = false;
-    if ui.input("Tower (template)", &mut s.Tower).draw() { changed = true; }
-    if ui.input("Faction", &mut s.Faction).draw() { changed = true; }
+    if input_str(ui, "Tower (template)", &mut s.Tower) { changed = true; }
+    if input_str(ui, "Faction", &mut s.Faction) { changed = true; }
     if slider_f32(ui, "X", &mut s.X, -3000.0, 3000.0) { changed = true; }
     if slider_f32(ui, "Y", &mut s.Y, -3000.0, 3000.0) { changed = true; }
     if slider_opt_f32(ui, "CollisionRadius (0=template)", &mut s.CollisionRadius, 0.0, 200.0) { changed = true; }
@@ -87,10 +124,12 @@ fn draw_structure(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.spacer(12.0);
     let delete = ui.button("Delete").draw();
     if delete {
+        app.begin_edit(None);
         app.map.Structures.remove(i);
         app.selection = Selection::None;
         app.dirty = true;
     } else if changed {
+        app.begin_edit(Some(&format!("edit_struct_{}", i)));
         app.map.Structures[i] = s;
         app.dirty = true;
     }
@@ -109,14 +148,15 @@ fn draw_checkpoint(ui: &mut UI, app: &mut AppState, i: usize) {
 
     let mut name_changed = false;
     let mut other_changed = false;
-    if ui.input("Name", &mut name).draw() { name_changed = true; }
-    if ui.input("Class", &mut class).draw() { other_changed = true; }
+    if input_str(ui, "Name", &mut name) { name_changed = true; }
+    if input_str(ui, "Class", &mut class) { other_changed = true; }
     if slider_f32(ui, "X", &mut x, -3000.0, 3000.0) { other_changed = true; }
     if slider_f32(ui, "Y", &mut y, -3000.0, 3000.0) { other_changed = true; }
 
     ui.spacer(12.0);
     let delete = ui.button("Delete").draw();
     if delete {
+        app.begin_edit(None);
         let removed_name = app.map.CheckPoint[i].Name.clone();
         app.map.CheckPoint.remove(i);
         for path in app.map.Path.iter_mut() {
@@ -126,6 +166,7 @@ fn draw_checkpoint(ui: &mut UI, app: &mut AppState, i: usize) {
         app.dirty = true;
     } else {
         if name_changed && name != old_name && !name.is_empty() {
+            app.begin_edit(Some(&format!("edit_cp_{}", i)));
             app.map.CheckPoint[i].Name = name.clone();
             for path in app.map.Path.iter_mut() {
                 for p in path.Points.iter_mut() {
@@ -135,6 +176,7 @@ fn draw_checkpoint(ui: &mut UI, app: &mut AppState, i: usize) {
             app.dirty = true;
         }
         if other_changed {
+            app.begin_edit(Some(&format!("edit_cp_{}", i)));
             let c = &mut app.map.CheckPoint[i];
             c.Class = class;
             c.X = x;
@@ -150,13 +192,15 @@ fn draw_blocked_region(ui: &mut UI, app: &mut AppState, i: usize) {
     let n_points = app.map.BlockedRegions[i].Points.len();
     ui.label(&format!("BlockedRegion #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
-    if ui.input("Name", &mut name).draw() {
+    if input_str(ui, "Name", &mut name) {
+        app.begin_edit(Some(&format!("edit_br_{}_name", i)));
         app.map.BlockedRegions[i].Name = name;
         app.dirty = true;
     }
     ui.label(&format!("Points: {}", n_points)).font_size(FS_BODY_SM).draw();
     ui.spacer(12.0);
     if ui.button("Delete Region").draw() {
+        app.begin_edit(None);
         app.map.BlockedRegions.remove(i);
         app.selection = Selection::None;
         app.dirty = true;
@@ -164,24 +208,29 @@ fn draw_blocked_region(ui: &mut UI, app: &mut AppState, i: usize) {
 }
 
 fn draw_blocked_region_point(ui: &mut UI, app: &mut AppState, ri: usize, pi: usize) {
-    let Some(region) = app.map.BlockedRegions.get_mut(ri) else { return; };
-    if pi >= region.Points.len() { return; }
-    let mut x = region.Points[pi].X;
-    let mut y = region.Points[pi].Y;
+    let (mut x, mut y, points_len) = match app.map.BlockedRegions.get(ri) {
+        Some(region) if pi < region.Points.len() => {
+            (region.Points[pi].X, region.Points[pi].Y, region.Points.len())
+        }
+        _ => return,
+    };
     ui.label(&format!("Region#{}.Point#{}", ri, pi)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
     if slider_f32(ui, "X", &mut x, -3000.0, 3000.0) { changed = true; }
     if slider_f32(ui, "Y", &mut y, -3000.0, 3000.0) { changed = true; }
     if changed {
+        app.begin_edit(Some(&format!("edit_br_pt_{}_{}", ri, pi)));
+        let region = &mut app.map.BlockedRegions[ri];
         region.Points[pi].X = x;
         region.Points[pi].Y = y;
         app.dirty = true;
     }
     ui.spacer(12.0);
-    let min_can_delete = region.Points.len() > 3;
+    let min_can_delete = points_len > 3;
     if min_can_delete && ui.button("Delete Point").draw() {
-        region.Points.remove(pi);
+        app.begin_edit(None);
+        app.map.BlockedRegions[ri].Points.remove(pi);
         app.selection = Selection::BlockedRegion(ri);
         app.dirty = true;
     } else if !min_can_delete {
@@ -195,7 +244,7 @@ fn draw_tower_template(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.label(&format!("Tower Template #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
-    if ui.input("Name", &mut t.Name).draw() { changed = true; }
+    if input_str(ui, "Name", &mut t.Name) { changed = true; }
     if slider_i32(ui, "Hp", &mut t.Property.Hp, 0, 20000) { changed = true; }
     if slider_i32(ui, "Block", &mut t.Property.Block, 0, 100) { changed = true; }
     if slider_f32(ui, "Attack.Range", &mut t.Attack.Range, 0.0, 3000.0) { changed = true; }
@@ -211,6 +260,7 @@ fn draw_tower_template(ui: &mut UI, app: &mut AppState, i: usize) {
         changed = true;
     }
     if changed {
+        app.begin_edit(Some(&format!("edit_tower_tmpl_{}", i)));
         app.map.Tower[i] = t;
         app.dirty = true;
     }
@@ -222,9 +272,9 @@ fn draw_creep_template(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.label(&format!("Creep Template #{}", i)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
-    if ui.input("Name", &mut c.Name).draw() { changed = true; }
+    if input_str(ui, "Name", &mut c.Name) { changed = true; }
     let mut label = c.Label.clone().unwrap_or_default();
-    if ui.input("Label (可選)", &mut label).draw() {
+    if input_str(ui, "Label (可選)", &mut label) {
         c.Label = if label.is_empty() { None } else { Some(label) };
         changed = true;
     }
@@ -233,7 +283,7 @@ fn draw_creep_template(ui: &mut UI, app: &mut AppState, i: usize) {
     if slider_f32(ui, "DefendMagic", &mut c.DefendMagic, 0.0, 500.0) { changed = true; }
     if slider_f32(ui, "MoveSpeed", &mut c.MoveSpeed, 0.0, 1000.0) { changed = true; }
     let mut faction = c.Faction.clone().unwrap_or_default();
-    if ui.input("Faction (Player/Enemy)", &mut faction).draw() {
+    if input_str(ui, "Faction (Player/Enemy)", &mut faction) {
         c.Faction = if faction.is_empty() { None } else { Some(faction) };
         changed = true;
     }
@@ -246,6 +296,7 @@ fn draw_creep_template(ui: &mut UI, app: &mut AppState, i: usize) {
         changed = true;
     }
     if changed {
+        app.begin_edit(Some(&format!("edit_creep_tmpl_{}", i)));
         app.map.Creep[i] = c;
         app.dirty = true;
     }
@@ -257,9 +308,9 @@ fn draw_hero(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.label(&format!("Hero #{}  ({})", i, h.id)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
-    if ui.input("id", &mut h.id).draw() { changed = true; }
-    if ui.input("name", &mut h.name).draw() { changed = true; }
-    if ui.input("primary_attribute", &mut h.primary_attribute).draw() { changed = true; }
+    if input_str(ui, "id", &mut h.id) { changed = true; }
+    if input_str(ui, "name", &mut h.name) { changed = true; }
+    if input_str(ui, "primary_attribute", &mut h.primary_attribute) { changed = true; }
     if slider_i32(ui, "strength", &mut h.strength, 0, 200) { changed = true; }
     if slider_i32(ui, "agility", &mut h.agility, 0, 200) { changed = true; }
     if slider_i32(ui, "intelligence", &mut h.intelligence, 0, 200) { changed = true; }
@@ -278,6 +329,7 @@ fn draw_hero(ui: &mut UI, app: &mut AppState, i: usize) {
         changed = true;
     }
     if changed {
+        app.begin_edit(Some(&format!("edit_hero_{}", i)));
         app.entity.heroes[i] = h;
         app.entity_dirty = true;
     }
@@ -289,22 +341,23 @@ fn draw_enemy(ui: &mut UI, app: &mut AppState, i: usize) {
     ui.label(&format!("Enemy #{}  ({})", i, e.id)).font_size(FS_SUBHEAD).draw();
     ui.spacer(4.0);
     let mut changed = false;
-    if ui.input("id", &mut e.id).draw() { changed = true; }
-    if ui.input("name", &mut e.name).draw() { changed = true; }
-    if ui.input("enemy_type", &mut e.enemy_type).draw() { changed = true; }
+    if input_str(ui, "id", &mut e.id) { changed = true; }
+    if input_str(ui, "name", &mut e.name) { changed = true; }
+    if input_str(ui, "enemy_type", &mut e.enemy_type) { changed = true; }
     if slider_i32(ui, "hp", &mut e.hp, 0, 20000) { changed = true; }
     if slider_f32(ui, "armor", &mut e.armor, 0.0, 500.0) { changed = true; }
     if slider_f32(ui, "magic_resistance", &mut e.magic_resistance, 0.0, 500.0) { changed = true; }
     if slider_i32(ui, "damage", &mut e.damage, 0, 1000) { changed = true; }
     if slider_f32(ui, "attack_range", &mut e.attack_range, 0.0, 3000.0) { changed = true; }
     if slider_f32(ui, "move_speed", &mut e.move_speed, 0.0, 1000.0) { changed = true; }
-    if ui.input("ai_type", &mut e.ai_type).draw() { changed = true; }
+    if input_str(ui, "ai_type", &mut e.ai_type) { changed = true; }
     if slider_i32(ui, "exp_reward", &mut e.exp_reward, 0, 10000) { changed = true; }
     if slider_i32(ui, "gold_reward", &mut e.gold_reward, 0, 10000) { changed = true; }
     if slider_opt_f32(ui, "collision_radius (0=default 25)", &mut e.collision_radius, 0.0, 200.0) {
         changed = true;
     }
     if changed {
+        app.begin_edit(Some(&format!("edit_enemy_{}", i)));
         app.entity.enemies[i] = e;
         app.entity_dirty = true;
     }
