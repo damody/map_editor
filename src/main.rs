@@ -32,27 +32,59 @@ fn main() {
     opts.height = 960;
     opts.text_font_file = cjk_font;
 
-    // 若啟動時帶 CLI 參數 → 自動開啟該檔案
-    if let Some(path) = std::env::args().nth(1) {
-        let p = std::path::PathBuf::from(&path);
-        let bytes = std::fs::read_to_string(&p).expect("cannot read map file");
-        let cleaned = io::strip_json_comments_public(&bytes);
-        match serde_json::from_str::<schema::CreepWaveData>(&cleaned) {
-            Ok(data) => {
-                state.map = data;
-                state.current_path = Some(p);
-                if let Some(t) = state.map.Tower.first() {
+    // 若啟動時帶 CLI 參數 → 判斷是目錄還是單檔
+    if let Some(path_arg) = std::env::args().nth(1) {
+        let p = std::path::PathBuf::from(&path_arg);
+        if p.is_dir() {
+            // 目錄模式：一次載入 4 個 JSON
+            let (mp, ep, ap, misp) = io::load_campaign_dir(&p);
+            if let Some((path, data)) = mp {
+                if let Some(t) = data.Tower.first() {
                     state.new_tower_template = t.Name.clone();
                 }
-                // 嘗試同目錄下的 entity.json 一併載入
-                if let Some(path_buf) = state.current_path.clone() {
-                    if let Some((ep, ed)) = io::try_load_sibling_entity(&path_buf) {
+                state.map = data;
+                state.current_path = Some(path);
+            } else {
+                eprintln!("Directory has no map.json: {}", p.display());
+            }
+            if let Some((path, data)) = ep {
+                state.entity = data;
+                state.entity_path = Some(path);
+            }
+            if let Some((path, data)) = ap {
+                state.ability = data;
+                state.ability_path = Some(path);
+            }
+            if let Some((path, data)) = misp {
+                state.mission = data;
+                state.mission_path = Some(path);
+            }
+        } else {
+            // 單檔模式（向後相容）：載入 map.json + 同目錄 sibling entity
+            let bytes = std::fs::read_to_string(&p).expect("cannot read map file");
+            let cleaned = io::strip_json_comments_public(&bytes);
+            match serde_json::from_str::<schema::CreepWaveData>(&cleaned) {
+                Ok(data) => {
+                    state.map = data;
+                    state.current_path = Some(p.clone());
+                    if let Some(t) = state.map.Tower.first() {
+                        state.new_tower_template = t.Name.clone();
+                    }
+                    if let Some((ep, ed)) = io::try_load_sibling_entity(&p) {
                         state.entity = ed;
                         state.entity_path = Some(ep);
                     }
+                    if let Some((ap, ad)) = io::try_load_sibling_ability(&p) {
+                        state.ability = ad;
+                        state.ability_path = Some(ap);
+                    }
+                    if let Some((misp, misd)) = io::try_load_sibling_mission(&p) {
+                        state.mission = misd;
+                        state.mission_path = Some(misp);
+                    }
                 }
+                Err(e) => eprintln!("Failed to parse {}: {}", path_arg, e),
             }
-            Err(e) => eprintln!("Failed to parse {}: {}", path, e),
         }
     }
 

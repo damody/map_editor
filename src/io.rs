@@ -73,6 +73,62 @@ pub fn pick_save_entity_path() -> Option<PathBuf> {
         .save_file()
 }
 
+/// 嘗試載入同目錄下的 ability.json（Value 原樣保留）
+pub fn try_load_sibling_ability(map_path: &PathBuf) -> Option<(PathBuf, serde_json::Value)> {
+    let p = map_path.parent()?.join("ability.json");
+    if !p.exists() { return None; }
+    let bytes = std::fs::read_to_string(&p).ok()?;
+    let cleaned = strip_json_comments(&bytes);
+    let v: serde_json::Value = serde_json::from_str(&cleaned).ok()?;
+    Some((p, v))
+}
+
+/// 嘗試載入同目錄下的 mission.json（Value 原樣保留）
+pub fn try_load_sibling_mission(map_path: &PathBuf) -> Option<(PathBuf, serde_json::Value)> {
+    let p = map_path.parent()?.join("mission.json");
+    if !p.exists() { return None; }
+    let bytes = std::fs::read_to_string(&p).ok()?;
+    let cleaned = strip_json_comments(&bytes);
+    let v: serde_json::Value = serde_json::from_str(&cleaned).ok()?;
+    Some((p, v))
+}
+
+pub fn save_ability_to(path: &PathBuf, data: &serde_json::Value) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data).map_err(|e| format!("serialize: {}", e))?;
+    std::fs::write(path, json).map_err(|e| format!("write: {}", e))
+}
+
+pub fn save_mission_to(path: &PathBuf, data: &serde_json::Value) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(data).map_err(|e| format!("serialize: {}", e))?;
+    std::fs::write(path, json).map_err(|e| format!("write: {}", e))
+}
+
+/// 載入一個目錄：若存在 map.json / entity.json / ability.json / mission.json
+/// 就都試著載入。回傳 (map, entity, ability, mission)，每個都是 Option<(path, data)>。
+pub fn load_campaign_dir(dir: &std::path::Path) -> (
+    Option<(PathBuf, CreepWaveData)>,
+    Option<(PathBuf, EntityConfig)>,
+    Option<(PathBuf, serde_json::Value)>,
+    Option<(PathBuf, serde_json::Value)>,
+) {
+    fn read_json<T: for<'de> serde::Deserialize<'de>>(p: &PathBuf) -> Option<T> {
+        if !p.exists() { return None; }
+        let bytes = std::fs::read_to_string(p).ok()?;
+        let cleaned = strip_json_comments(&bytes);
+        serde_json::from_str(&cleaned).ok()
+    }
+    let mp = dir.join("map.json");
+    let ep = dir.join("entity.json");
+    let ap = dir.join("ability.json");
+    let misp = dir.join("mission.json");
+    (
+        read_json::<CreepWaveData>(&mp).map(|d| (mp, d)),
+        read_json::<EntityConfig>(&ep).map(|d| (ep, d)),
+        read_json::<serde_json::Value>(&ap).map(|d| (ap, d)),
+        read_json::<serde_json::Value>(&misp).map(|d| (misp, d)),
+    )
+}
+
 /// 移除 C-style 註解（// 和 /* */），保留字串內容
 fn strip_json_comments(src: &str) -> String {
     let mut out = String::with_capacity(src.len());

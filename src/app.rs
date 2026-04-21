@@ -62,6 +62,16 @@ pub struct AppState {
     pub entity_path: Option<std::path::PathBuf>,
     pub entity_dirty: bool,
 
+    /// ability.json 原樣保留為 Value（目前僅支援另存往返，不做 typed editing）
+    pub ability: serde_json::Value,
+    pub ability_path: Option<std::path::PathBuf>,
+    pub ability_dirty: bool,
+
+    /// mission.json 原樣保留為 Value
+    pub mission: serde_json::Value,
+    pub mission_path: Option<std::path::PathBuf>,
+    pub mission_dirty: bool,
+
     pub view_mode: ViewMode,
     pub selection: Selection,
     pub tool: Tool,
@@ -99,6 +109,12 @@ impl Default for AppState {
             entity: EntityConfig::default(),
             entity_path: None,
             entity_dirty: false,
+            ability: serde_json::Value::Null,
+            ability_path: None,
+            ability_dirty: false,
+            mission: serde_json::Value::Null,
+            mission_path: None,
+            mission_dirty: false,
             view_mode: ViewMode::Map,
             selection: Selection::None,
             tool: Tool::Select,
