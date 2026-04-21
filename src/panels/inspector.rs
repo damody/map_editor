@@ -1,11 +1,16 @@
+use std::hash::{Hash, Hasher};
+
 use eui::quick::ui::UI;
-use eui::Rect;
+use eui::{Rect, TextAlign};
 
 use crate::app::{AppState, Selection};
 use crate::style::{
     FS_BODY, FS_BODY_SM, FS_FIELD_LABEL, FS_FIELD_VALUE, FS_HEAD, FS_LABEL, FS_SLIDER_VALUE,
     FS_SUBHEAD, H_FIELD, H_SLIDER_BAR_MAX, LH_FIELD_LABEL, LH_HEAD,
 };
+
+/// CheckPoint.Class 可選項目（第一項為預設）
+const CHECKPOINT_CLASSES: &[&str] = &["Path", "Base", "Spawn", "Tower"];
 
 /// 包裝 ui.input：套用本專案的放大 label / 行高 / 值字級
 fn input_str(ui: &mut UI, label: &str, v: &mut String) -> bool {
@@ -15,6 +20,34 @@ fn input_str(ui: &mut UI, label: &str, v: &mut String) -> bool {
         .height(H_FIELD)
         .value_font_size(FS_FIELD_VALUE)
         .draw()
+}
+
+/// 下拉式選單字串欄位；不在清單內的原始值保留在 idx=0 的 fallback，使用者按下即切換。
+fn combo_str(ui: &mut UI, label: &str, v: &mut String, items: &[&str]) -> bool {
+    let lr = ui.content_rect();
+    let y = ui.cursor_y();
+    let r = Rect::new(lr.x, y, lr.w, H_FIELD);
+    let muted = ui.theme().muted_text;
+    let label_r = Rect::new(r.x, r.y, r.w, LH_FIELD_LABEL);
+    ui.ctx()
+        .paint_text(label_r, label, FS_FIELD_LABEL, muted, TextAlign::Left);
+
+    let field_r = Rect::new(
+        r.x,
+        r.y + LH_FIELD_LABEL,
+        r.w,
+        H_FIELD - LH_FIELD_LABEL,
+    );
+    let mut idx = items.iter().position(|s| *s == v.as_str()).unwrap_or(0);
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    ("combo", label).hash(&mut hasher);
+    let id = hasher.finish();
+    let changed = ui.ctx().dropdown(id, field_r, items, &mut idx);
+    if changed {
+        *v = items[idx].to_string();
+    }
+    ui.ctx().advance_cursor(H_FIELD, 4.0);
+    changed
 }
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
@@ -149,7 +182,7 @@ fn draw_checkpoint(ui: &mut UI, app: &mut AppState, i: usize) {
     let mut name_changed = false;
     let mut other_changed = false;
     if input_str(ui, "Name", &mut name) { name_changed = true; }
-    if input_str(ui, "Class", &mut class) { other_changed = true; }
+    if combo_str(ui, "Class", &mut class, CHECKPOINT_CLASSES) { other_changed = true; }
     if slider_f32(ui, "X", &mut x, -3000.0, 3000.0) { other_changed = true; }
     if slider_f32(ui, "Y", &mut y, -3000.0, 3000.0) { other_changed = true; }
 
