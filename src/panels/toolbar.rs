@@ -1,7 +1,7 @@
 use eui::quick::ui::UI;
 use eui::{ButtonStyle, Rect};
 
-use crate::app::{AppState, Tool};
+use crate::app::{AppState, Tool, ViewMode};
 use crate::io;
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
@@ -69,6 +69,32 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                     }
                 }
             }
+            if btn!("Save All", ButtonStyle::Primary) {
+                if app.dirty {
+                    if let Some(ref p) = app.current_path {
+                        if let Err(e) = io::save_to(p, &app.map) { eprintln!("Save map failed: {}", e); }
+                        else { app.dirty = false; println!("Saved: {}", p.display()); }
+                    }
+                }
+                if app.entity_dirty {
+                    if let Some(ref p) = app.entity_path {
+                        if let Err(e) = io::save_entity_to(p, &app.entity) { eprintln!("Save entity failed: {}", e); }
+                        else { app.entity_dirty = false; println!("Saved: {}", p.display()); }
+                    }
+                }
+                if app.ability_dirty {
+                    if let Some(ref p) = app.ability_path {
+                        if let Err(e) = io::save_ability_to(p, &app.ability) { eprintln!("Save ability failed: {}", e); }
+                        else { app.ability_dirty = false; println!("Saved: {}", p.display()); }
+                    }
+                }
+                if app.mission_dirty {
+                    if let Some(ref p) = app.mission_path {
+                        if let Err(e) = io::save_mission_to(p, &app.mission) { eprintln!("Save mission failed: {}", e); }
+                        else { app.mission_dirty = false; println!("Saved: {}", p.display()); }
+                    }
+                }
+            }
 
             x += 16.0; // 分隔
 
@@ -93,19 +119,60 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             if tool_btn(&mut ui, "+CheckPoint", Tool::AddCheckPoint, app.tool, &mut x) {
                 app.tool = Tool::AddCheckPoint;
             }
+            if tool_btn(&mut ui, "+Region", Tool::AddBlockedRegion, app.tool, &mut x) {
+                app.tool = Tool::AddBlockedRegion;
+                app.region_draft.clear();
+            }
+            if tool_btn(&mut ui, "Edit Region", Tool::EditBlockedRegion, app.tool, &mut x) {
+                app.tool = Tool::EditBlockedRegion;
+            }
 
             x += 16.0;
-            // 狀態文字
-            let status = if let Some(ref p) = app.current_path {
-                format!(
-                    "{}{}",
-                    if app.dirty { "● " } else { "" },
-                    p.display()
-                )
-            } else {
-                "(unsaved)".to_string()
+            // ViewMode 切換：Map / Entities
+            {
+                let br = Rect::new(x, row.y, cell_w, row.h);
+                x += cell_w + 4.0;
+                let style = if app.view_mode == ViewMode::Map {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Ghost
+                };
+                if ui.button("Map").rect(br).style(style).draw() {
+                    app.view_mode = ViewMode::Map;
+                }
+            }
+            {
+                let br = Rect::new(x, row.y, cell_w, row.h);
+                x += cell_w + 4.0;
+                let style = if app.view_mode == ViewMode::Entities {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Ghost
+                };
+                if ui.button("Entities").rect(br).style(style).draw() {
+                    app.view_mode = ViewMode::Entities;
+                }
+            }
+
+            x += 16.0;
+            // 狀態文字：map + 其他已載入檔案的 dirty 標記
+            let status = {
+                let dir = app
+                    .current_path
+                    .as_ref()
+                    .and_then(|p| p.parent())
+                    .map(|d| d.display().to_string())
+                    .unwrap_or_else(|| "(unsaved)".to_string());
+                let flags = format!(
+                    "{}{}{}{}",
+                    if app.dirty { "M" } else { "·" },
+                    if app.entity_dirty { "E" } else { "·" },
+                    if app.ability_dirty { "A" } else { "·" },
+                    if app.mission_dirty { "m" } else { "·" },
+                );
+                format!("[{}] {}", flags, dir)
             };
-            let tw = 600.0_f32;
+            let tw = 700.0_f32;
             ui.text(&status)
                 .rect(Rect::new(x, row.y, tw, row.h))
                 .font_size(15.0)

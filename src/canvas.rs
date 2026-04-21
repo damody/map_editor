@@ -355,9 +355,9 @@ fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
             .iter()
             .map(|p| world_to_screen(app, rect, p.X, p.Y))
             .collect();
-        let _f = if selected_region { fill_sel } else { fill };
-        // TODO: eui Context 尚無 paint_triangle；暫僅畫邊線，待 eui 補上 fan-fill 後
-        // 再恢復填色。
+        let f = if selected_region { fill_sel } else { fill };
+        // scan-line fill：用 2px 高的細長矩形拼出多邊形填色，支援凹多邊形
+        fill_polygon_scanline(ui, rect, &pts, f);
         for i in 0..n {
             let a = pts[i];
             let b = pts[(i + 1) % n];
@@ -381,6 +381,51 @@ fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
                 .font_size(12.0)
                 .draw();
         }
+    }
+}
+
+/// 多邊形 scan-line 填色：支援凹多邊形。以 step_y 的水平帶拼接。
+fn fill_polygon_scanline(ui: &mut UI, clip_rect: &Rect, pts: &[(f32, f32)], color: Color) {
+    if pts.len() < 3 {
+        return;
+    }
+    let (mut min_y, mut max_y) = (pts[0].1, pts[0].1);
+    for &(_, y) in pts.iter() {
+        if y < min_y { min_y = y; }
+        if y > max_y { max_y = y; }
+    }
+    // 夾到 clip_rect 範圍內（避免畫到畫布外）
+    min_y = min_y.max(clip_rect.y);
+    max_y = max_y.min(clip_rect.y + clip_rect.h);
+    let step_y: f32 = 2.0;
+    let mut y = min_y;
+    while y < max_y {
+        let mut xs: Vec<f32> = Vec::new();
+        let n = pts.len();
+        for i in 0..n {
+            let (x0, y0) = pts[i];
+            let (x1, y1) = pts[(i + 1) % n];
+            // 邊與水平線 y 的交點
+            if (y0 <= y && y1 > y) || (y1 <= y && y0 > y) {
+                let t = (y - y0) / (y1 - y0);
+                xs.push(x0 + t * (x1 - x0));
+            }
+        }
+        xs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut i = 0;
+        while i + 1 < xs.len() {
+            let xa = xs[i].max(clip_rect.x);
+            let xb = xs[i + 1].min(clip_rect.x + clip_rect.w);
+            if xb > xa {
+                ui.ctx().paint_filled_rect(
+                    Rect::new(xa, y, xb - xa, step_y),
+                    color,
+                    0.0,
+                );
+            }
+            i += 2;
+        }
+        y += step_y;
     }
 }
 
