@@ -4,7 +4,7 @@ use eui::{rgba, Color, Rect};
 
 use crate::app::{AppState, DragState, Selection, Tool};
 use crate::geometry::{point_in_polygon, point_segment_dist};
-use crate::schema::{BlockedRegionJD, CheckPointJD, PointJD, StructureJD};
+use crate::schema::{BlockedRegionJD, CheckPointJD, PathJD, PointJD, StructureJD};
 use crate::style::{FS_CAPTION, FS_LABEL};
 
 pub fn world_to_screen(app: &AppState, rect: &Rect, wx: f32, wy: f32) -> (f32, f32) {
@@ -28,6 +28,12 @@ fn point_in_rect(rect: &Rect, x: f32, y: f32) -> bool {
 }
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
+    if app.tool != Tool::AddCheckPoint {
+        app.current_path_idx = None;
+    } else if ui.ctx().input().key_escape {
+        app.current_path_idx = None;
+    }
+
     ui.paint_filled_rect(rect, rgba(0.15, 0.18, 0.20, 1.0), 0.0);
 
     draw_grid(ui, &rect, app);
@@ -85,6 +91,10 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         draw_region_draft(ui, &rect, app);
     }
 
+    if app.tool == Tool::AddCheckPoint && app.current_path_idx.is_some() {
+        draw_checkpoint_chain_preview(ui, &rect, app);
+    }
+
     // === 滑鼠互動 ===
     let mx = ui.ctx().input().mouse_x;
     let my = ui.ctx().input().mouse_y;
@@ -118,6 +128,15 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         && app.tool == Tool::AddBlockedRegion
     {
         commit_region_draft(app);
+        return;
+    }
+
+    // 右鍵：AddCheckPoint 時取消當前連線鏈
+    if in_canvas
+        && ui.ctx().input().mouse_right_pressed
+        && app.tool == Tool::AddCheckPoint
+    {
+        app.current_path_idx = None;
         return;
     }
 
@@ -211,6 +230,17 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         }
                         _ => (0.0, 0.0),
                     };
+                    let tag = match app.selection {
+                        Selection::Structure(i) => Some(format!("drag_struct_{}", i)),
+                        Selection::CheckPoint(i) => Some(format!("drag_cp_{}", i)),
+                        Selection::BlockedRegionPoint(ri, pi) => {
+                            Some(format!("drag_region_{}_{}", ri, pi))
+                        }
+                        _ => None,
+                    };
+                    if let Some(t) = tag.as_deref() {
+                        app.begin_edit(Some(t));
+                    }
                     app.drag_state = Some(DragState {
                         sel: app.selection,
                         orig_world_x: ox,
@@ -223,6 +253,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             Tool::AddTower => {
                 if !app.new_tower_template.is_empty() {
                     let (wx, wy) = screen_to_world(app, &rect, mx, my);
+                    app.begin_edit(None);
                     app.map.Structures.push(StructureJD {
                         Tower: app.new_tower_template.clone(),
                         Faction: app.new_tower_faction.clone(),
@@ -238,14 +269,37 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             Tool::AddCheckPoint => {
                 let (wx, wy) = screen_to_world(app, &rect, mx, my);
                 let idx = app.map.CheckPoint.len();
+                let new_name = format!("cp_{}", idx);
+                app.begin_edit(None);
                 app.map.CheckPoint.push(CheckPointJD {
-                    Name: format!("cp_{}", idx),
+                    Name: new_name.clone(),
                     Class: "Path".to_string(),
                     X: wx.round(),
                     Y: wy.round(),
                 });
                 app.dirty = true;
                 app.selection = Selection::CheckPoint(idx);
+
+                let valid_chain = app
+                    .current_path_idx
+                    .and_then(|pi| app.map.Path.get(pi).map(|_| pi));
+                if let Some(pi) = valid_chain {
+                    app.map.Path[pi].Points.push(new_name);
+                } else {
+                    let mut n = app.map.Path.len();
+                    let new_path_name = loop {
+                        let cand = format!("path_{}", n);
+                        if !app.map.Path.iter().any(|p| p.Name == cand) {
+                            break cand;
+                        }
+                        n += 1;
+                    };
+                    app.map.Path.push(PathJD {
+                        Name: new_path_name,
+                        Points: vec![new_name],
+                    });
+                    app.current_path_idx = Some(app.map.Path.len() - 1);
+                }
             }
             Tool::AddBlockedRegion => {
                 let (wx, wy) = screen_to_world(app, &rect, mx, my);
@@ -269,11 +323,15 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 }
                 if let Some((ri, pi, _)) = best {
                     app.selection = Selection::BlockedRegionPoint(ri, pi);
-                    let p = &app.map.BlockedRegions[ri].Points[pi];
+                    let (px, py) = {
+                        let p = &app.map.BlockedRegions[ri].Points[pi];
+                        (p.X, p.Y)
+                    };
+                    app.begin_edit(Some(&format!("drag_region_{}_{}", ri, pi)));
                     app.drag_state = Some(DragState {
                         sel: app.selection,
-                        orig_world_x: p.X,
-                        orig_world_y: p.Y,
+                        orig_world_x: px,
+                        orig_world_y: py,
                         start_mouse_x: mx,
                         start_mouse_y: my,
                     });
@@ -326,6 +384,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
 fn commit_region_draft(app: &mut AppState) {
     if app.region_draft.len() >= 3 {
         let idx = app.map.BlockedRegions.len();
+        app.begin_edit(None);
         app.map.BlockedRegions.push(BlockedRegionJD {
             Name: format!("region_{}", idx),
             Points: std::mem::take(&mut app.region_draft),
@@ -430,6 +489,30 @@ fn fill_polygon_scanline(ui: &mut UI, clip_rect: &Rect, pts: &[(f32, f32)], colo
     }
 }
 
+fn draw_checkpoint_chain_preview(ui: &mut UI, rect: &Rect, app: &AppState) {
+    let pi = match app.current_path_idx {
+        Some(i) => i,
+        None => return,
+    };
+    let path = match app.map.Path.get(pi) {
+        Some(p) => p,
+        None => return,
+    };
+    let last_name = match path.Points.last() {
+        Some(n) => n,
+        None => return,
+    };
+    let cp = match app.map.CheckPoint.iter().find(|c| &c.Name == last_name) {
+        Some(c) => c,
+        None => return,
+    };
+    let (px, py) = world_to_screen(app, rect, cp.X, cp.Y);
+    let mx = ui.ctx().input().mouse_x;
+    let my = ui.ctx().input().mouse_y;
+    ui.ctx()
+        .paint_line(px, py, mx, my, rgba(1.0, 1.0, 0.3, 0.4), 1.5);
+}
+
 fn draw_region_draft(ui: &mut UI, rect: &Rect, app: &AppState) {
     let color = rgba(1.0, 1.0, 0.3, 0.9);
     let mut prev: Option<(f32, f32)> = None;
@@ -520,6 +603,8 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
         None => return false,
     };
 
+    let snap_before = app.current_snapshot();
+
     let (wx, wy) = screen_to_world(app, rect, mx, my);
     let mut n = app.map.CheckPoint.len();
     let new_name = loop {
@@ -558,6 +643,7 @@ fn try_insert_on_path(app: &mut AppState, rect: &Rect, mx: f32, my: f32) -> bool
     }
 
     if inserted_any {
+        app.undo.push(snap_before, None);
         app.dirty = true;
         app.selection = Selection::CheckPoint(app.map.CheckPoint.len() - 1);
         true
