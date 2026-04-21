@@ -42,3 +42,12 @@ pub const TOOLBAR_H: f32 = BASE_TOOLBAR_H * UI_SCALE;
 pub const WAVES_H: f32 = BASE_WAVES_H * UI_SCALE;
 pub const LEFT_W: f32 = BASE_LEFT_W * UI_SCALE;
 pub const RIGHT_W: f32 = BASE_RIGHT_W * UI_SCALE;
+
+// ---- Toolbar cell width ----
+/// Toolbar 內每顆按鈕分配的寬度；字級放大後需同步放大以免截斷
+const BASE_TOOLBAR_CELL_W: f32 = 100.0;
+pub const TOOLBAR_CELL_W: f32 = BASE_TOOLBAR_CELL_W * UI_SCALE;
+/// 按鈕之間的水平間距
+pub const TOOLBAR_CELL_GAP: f32 = 4.0;
+/// 按鈕群組之間的分隔距離
+pub const TOOLBAR_GROUP_GAP: f32 = 16.0;

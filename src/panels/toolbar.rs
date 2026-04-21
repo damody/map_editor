@@ -3,7 +3,7 @@ use eui::{ButtonStyle, Rect};
 
 use crate::app::{AppState, Tool, ViewMode};
 use crate::io;
-use crate::style::FS_BODY;
+use crate::style::{FS_BODY, TOOLBAR_CELL_GAP, TOOLBAR_CELL_W, TOOLBAR_GROUP_GAP};
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -18,13 +18,13 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
 
             // 水平 6 欄：Open / Save / | / Select / AddTower / AddCheckPoint
             let row = ui.content_rect();
-            let cell_w = 100.0_f32;
+            let cell_w = TOOLBAR_CELL_W;
             let mut x = row.x;
 
             macro_rules! btn {
                 ($label:expr, $style:expr) => {{
                     let br = Rect::new(x, row.y, cell_w, row.h);
-                    x += cell_w + 4.0;
+                    x += cell_w + TOOLBAR_CELL_GAP;
                     let clicked = ui
                         .button($label)
                         .rect(br)
@@ -97,12 +97,12 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 }
             }
 
-            x += 16.0; // 分隔
+            x += TOOLBAR_GROUP_GAP; // 分隔
 
             let tool_btn =
                 |ui: &mut UI, label: &str, tool: Tool, app_tool: Tool, x: &mut f32| -> bool {
                     let br = Rect::new(*x, row.y, cell_w, row.h);
-                    *x += cell_w + 4.0;
+                    *x += cell_w + TOOLBAR_CELL_GAP;
                     let style = if app_tool == tool {
                         ButtonStyle::Primary
                     } else {
@@ -128,11 +128,11 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 app.tool = Tool::EditBlockedRegion;
             }
 
-            x += 16.0;
+            x += TOOLBAR_GROUP_GAP;
             // ViewMode 切換：Map / Entities
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
-                x += cell_w + 4.0;
+                x += cell_w + TOOLBAR_CELL_GAP;
                 let style = if app.view_mode == ViewMode::Map {
                     ButtonStyle::Primary
                 } else {
@@ -144,7 +144,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
-                x += cell_w + 4.0;
+                x += cell_w + TOOLBAR_CELL_GAP;
                 let style = if app.view_mode == ViewMode::Entities {
                     ButtonStyle::Primary
                 } else {
@@ -155,7 +155,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 }
             }
 
-            x += 16.0;
+            x += TOOLBAR_GROUP_GAP;
             // 狀態文字：map + 其他已載入檔案的 dirty 標記
             let status = {
                 let dir = app
