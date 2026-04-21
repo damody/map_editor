@@ -174,6 +174,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         X: wx.round(),
                         Y: wy.round(),
                         IsBase: app.new_tower_is_base,
+                        CollisionRadius: None,
                     });
                     app.dirty = true;
                     app.selection = Selection::Structure(app.map.Structures.len() - 1);

@@ -14,6 +14,8 @@ pub struct CreepWaveData {
     pub CreepWave: Vec<CreepWaveJD>,
     #[serde(default)]
     pub Structures: Vec<StructureJD>,
+    #[serde(default)]
+    pub BlockedRegions: Vec<BlockedRegionJD>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -24,6 +26,8 @@ pub struct StructureJD {
     pub Y: f32,
     #[serde(default)]
     pub IsBase: bool,
+    #[serde(default)]
+    pub CollisionRadius: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -45,6 +49,8 @@ pub struct CreepJD {
     pub Faction: Option<String>,
     #[serde(default)]
     pub TurnSpeed: Option<f32>,
+    #[serde(default)]
+    pub CollisionRadius: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -62,6 +68,8 @@ pub struct TowerJD {
     pub Attack: AttackJD,
     #[serde(default)]
     pub TurnSpeed: Option<f32>,
+    #[serde(default)]
+    pub CollisionRadius: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -97,6 +105,19 @@ pub struct CreepsJD {
     pub Creep: String,
 }
 
+/// 不可通行多邊形區域（凹/凸皆可）。至少 3 點。
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct BlockedRegionJD {
+    pub Name: String,
+    pub Points: Vec<PointJD>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+pub struct PointJD {
+    pub X: f32,
+    pub Y: f32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,12 +133,30 @@ mod tests {
         assert!(!data.Path.is_empty());
         assert!(!data.CheckPoint.is_empty());
         assert!(!data.Structures.is_empty());
-        println!("paths={} cps={} towers={} structures={} waves={}",
+        println!("paths={} cps={} towers={} structures={} waves={} regions={}",
             data.Path.len(), data.CheckPoint.len(), data.Tower.len(),
-            data.Structures.len(), data.CreepWave.len());
+            data.Structures.len(), data.CreepWave.len(), data.BlockedRegions.len());
         // round-trip
         let back = serde_json::to_string_pretty(&data).expect("serialize");
         let data2: CreepWaveData = serde_json::from_str(&back).expect("reparse");
         assert_eq!(data.Structures.len(), data2.Structures.len());
+    }
+
+    #[test]
+    fn blocked_regions_round_trip() {
+        let mut d = CreepWaveData::default();
+        d.BlockedRegions.push(BlockedRegionJD {
+            Name: "lake".into(),
+            Points: vec![
+                PointJD { X: 0.0, Y: 0.0 },
+                PointJD { X: 100.0, Y: 0.0 },
+                PointJD { X: 50.0, Y: 80.0 },
+            ],
+        });
+        let s = serde_json::to_string(&d).unwrap();
+        let d2: CreepWaveData = serde_json::from_str(&s).unwrap();
+        assert_eq!(d2.BlockedRegions.len(), 1);
+        assert_eq!(d2.BlockedRegions[0].Name, "lake");
+        assert_eq!(d2.BlockedRegions[0].Points.len(), 3);
     }
 }
