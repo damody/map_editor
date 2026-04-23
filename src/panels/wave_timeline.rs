@@ -41,6 +41,9 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         let r = ui.content_rect();
         ui.paint_filled_rect(r, bg, 0.0);
 
+        let input = ui.ctx().input().clone();
+        let (mx, my) = (input.mouse_x, input.mouse_y);
+
         let Some(w_idx) = app.wave_edit.selected_wave else {
             let text_color = eui::rgba(0.6, 0.6, 0.6, 1.0);
             ui.ctx().paint_text(
@@ -97,6 +100,9 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 TextAlign::Left,
             );
         }
+
+        let mut hit_spawn: Option<(usize, usize, usize)> = None;
+        let mut hit_lane: Option<(usize, usize)> = None;
 
         let lanes_y = ruler_y + WAVE_RULER_H + 4.0;
         for (di, detail) in wave.Detail.iter().enumerate() {
@@ -166,6 +172,24 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                         );
                     }
                 }
+
+                let dx = mx - cx;
+                let dy = my - cy;
+                if dx * dx + dy * dy <= WAVE_DOT_R * WAVE_DOT_R {
+                    hit_spawn = Some((w_idx, di, si));
+                }
+            }
+
+            if hit_spawn.is_none() && lane_rect.contains(mx, my) {
+                hit_lane = Some((w_idx, di));
+            }
+        }
+
+        if input.mouse_pressed {
+            if let Some((w, d, s)) = hit_spawn {
+                app.selection = Selection::WaveSpawn(w, d, s);
+            } else if let Some((w, d)) = hit_lane {
+                app.selection = Selection::WaveDetail(w, d);
             }
         }
     });
