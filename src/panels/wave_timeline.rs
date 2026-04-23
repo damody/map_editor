@@ -215,11 +215,22 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 100.0,
                 WAVE_LANE_H - 8.0,
             );
+            let path_exists = app.map.Path.iter().any(|p| p.Name == detail.Path);
+            let header_color = if path_exists {
+                eui::rgba(0.85, 0.85, 0.85, 1.0)
+            } else {
+                eui::rgba(0.95, 0.40, 0.40, 1.0)
+            };
+            let header_text = if path_exists {
+                detail.Path.clone()
+            } else {
+                format!("{} (not found)", detail.Path)
+            };
             ui.ctx().paint_text(
                 header_rect,
-                &detail.Path,
+                &header_text,
                 FS_LABEL,
-                eui::rgba(0.85, 0.85, 0.85, 1.0),
+                header_color,
                 TextAlign::Left,
             );
 
@@ -238,10 +249,20 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                     WAVE_DOT_R * 2.0,
                     WAVE_DOT_R * 2.0,
                 );
-                let color = creep_color(&spawn.Creep);
+                let creep_exists =
+                    app.map.Creep.iter().any(|c| c.Name == spawn.Creep);
+                let color = if creep_exists {
+                    creep_color(&spawn.Creep)
+                } else {
+                    eui::rgba(0.5, 0.5, 0.5, 0.7)
+                };
                 ui.paint_filled_rect(dot_rect, color, WAVE_DOT_R);
 
-                let letter = creep_letter(&spawn.Creep);
+                let letter = if creep_exists {
+                    creep_letter(&spawn.Creep)
+                } else {
+                    "?".to_string()
+                };
                 ui.ctx().paint_text(
                     dot_rect,
                     &letter,
