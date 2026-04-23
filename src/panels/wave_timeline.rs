@@ -1,10 +1,38 @@
 use eui::quick::ui::UI;
 use eui::{Rect, TextAlign};
 
-use crate::app::{AppState, WaveZoom};
+use crate::app::{AppState, Selection, WaveZoom};
 use crate::style::{
-    FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_HEADER_H, WAVE_LANE_H, WAVE_RULER_H,
+    FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_DOT_R, WAVE_HEADER_H, WAVE_LANE_H, WAVE_RULER_H,
 };
+
+/// 由 creep_name hash 決定顏色（固定 8 色 palette）
+fn creep_color(name: &str) -> eui::Color {
+    const PALETTE: [(f32, f32, f32); 8] = [
+        (0.30, 0.78, 0.45),
+        (0.85, 0.30, 0.30),
+        (0.30, 0.55, 0.85),
+        (0.95, 0.75, 0.20),
+        (0.75, 0.40, 0.85),
+        (0.40, 0.80, 0.80),
+        (0.95, 0.55, 0.25),
+        (0.65, 0.65, 0.70),
+    ];
+    let mut h: u32 = 5381;
+    for b in name.bytes() {
+        h = h.wrapping_mul(33).wrapping_add(b as u32);
+    }
+    let (r, g, b) = PALETTE[(h as usize) % PALETTE.len()];
+    eui::rgba(r, g, b, 1.0)
+}
+
+fn creep_letter(name: &str) -> String {
+    name.chars()
+        .skip_while(|c| !c.is_ascii_alphabetic())
+        .take(1)
+        .collect::<String>()
+        .to_uppercase()
+}
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -37,7 +65,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             + 0.5;
         let total_sec = total_sec.max(1.0);
         let px_per_sec = match app.wave_edit.zoom_mode {
-            WaveZoom::Fit => ((r.w - 16.0) / total_sec).max(1.0),
+            WaveZoom::Fit => ((r.w - 16.0 - 110.0) / total_sec).max(1.0),
             WaveZoom::Fixed(s) => s,
         };
 
@@ -48,11 +76,11 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             .paint_text(header, &title, FS_SUBHEAD, muted, TextAlign::Left);
 
         let ruler_y = r.y + WAVE_HEADER_H;
-        let ruler_rect = Rect::new(r.x + 8.0, ruler_y, r.w - 16.0, WAVE_RULER_H);
+        let ruler_rect = Rect::new(r.x + 8.0 + 110.0, ruler_y, r.w - 16.0 - 110.0, WAVE_RULER_H);
         let ruler_color = eui::rgba(0.25, 0.27, 0.30, 1.0);
         ui.paint_filled_rect(ruler_rect, ruler_color, 0.0);
         let scroll_x = app.wave_edit.scroll_x;
-        let max_visible_sec = ((r.w - 16.0) / px_per_sec).ceil() as i32 + 1;
+        let max_visible_sec = ((ruler_rect.w) / px_per_sec).ceil() as i32 + 1;
         for s in 0..max_visible_sec {
             let cx = ruler_rect.x + s as f32 * px_per_sec - scroll_x;
             if cx < ruler_rect.x || cx > ruler_rect.x + ruler_rect.w {
@@ -84,7 +112,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             let header_rect = Rect::new(
                 lane_rect.x + 6.0,
                 lane_rect.y + 4.0,
-                120.0,
+                100.0,
                 WAVE_LANE_H - 8.0,
             );
             ui.ctx().paint_text(
@@ -94,8 +122,51 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 eui::rgba(0.85, 0.85, 0.85, 1.0),
                 TextAlign::Left,
             );
-        }
 
-        let _ = app;
+            let lane_origin_x = lane_rect.x + 110.0;
+            let cy = lane_rect.y + lane_rect.h * 0.5;
+            for (si, spawn) in detail.Creeps.iter().enumerate() {
+                let cx = lane_origin_x + spawn.Time * px_per_sec - scroll_x;
+                if cx < lane_origin_x - WAVE_DOT_R
+                    || cx > lane_rect.x + lane_rect.w + WAVE_DOT_R
+                {
+                    continue;
+                }
+                let dot_rect = Rect::new(
+                    cx - WAVE_DOT_R,
+                    cy - WAVE_DOT_R,
+                    WAVE_DOT_R * 2.0,
+                    WAVE_DOT_R * 2.0,
+                );
+                let color = creep_color(&spawn.Creep);
+                ui.paint_filled_rect(dot_rect, color, WAVE_DOT_R);
+
+                let letter = creep_letter(&spawn.Creep);
+                ui.ctx().paint_text(
+                    dot_rect,
+                    &letter,
+                    FS_LABEL,
+                    eui::rgba(1.0, 1.0, 1.0, 1.0),
+                    TextAlign::Center,
+                );
+
+                if let Selection::WaveSpawn(ws, ds, ss) = app.selection {
+                    if ws == w_idx && ds == di && ss == si {
+                        let outline_r = WAVE_DOT_R + 2.0;
+                        let outline = Rect::new(
+                            cx - outline_r,
+                            cy - outline_r,
+                            outline_r * 2.0,
+                            outline_r * 2.0,
+                        );
+                        ui.paint_filled_rect(
+                            outline,
+                            eui::rgba(1.0, 0.9, 0.2, 0.4),
+                            outline_r,
+                        );
+                    }
+                }
+            }
+        }
     });
 }
