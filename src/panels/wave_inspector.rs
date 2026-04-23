@@ -68,6 +68,17 @@ fn draw_wave(ui: &mut UI, app: &mut AppState, w: usize) {
         app.map.CreepWave[w].StartTime = start_time;
         app.dirty = true;
     }
+
+    ui.spacer(8.0);
+    if ui.button("+ Detail").secondary().draw() {
+        app.begin_edit(None);
+        let path = app.map.Path.first().map(|p| p.Name.clone()).unwrap_or_default();
+        app.map.CreepWave[w].Detail.push(crate::schema::DetailJD {
+            Path: path,
+            Creeps: vec![],
+        });
+        app.dirty = true;
+    }
 }
 
 fn draw_detail(ui: &mut UI, app: &mut AppState, w: usize, d: usize) {
@@ -85,6 +96,36 @@ fn draw_detail(ui: &mut UI, app: &mut AppState, w: usize, d: usize) {
     }
     let count = app.map.CreepWave[w].Detail[d].Creeps.len();
     ui.label(&format!("Spawns: {}", count)).font_size(FS_BODY).draw();
+
+    ui.spacer(8.0);
+    if ui.button("+ Spawn").secondary().draw() {
+        let creep = app
+            .wave_edit
+            .last_inserted_creep
+            .clone()
+            .or_else(|| app.map.Creep.first().map(|c| c.Name.clone()))
+            .unwrap_or_default();
+        app.begin_edit(None);
+        let next_t = app.map.CreepWave[w].Detail[d]
+            .Creeps
+            .iter()
+            .map(|c| c.Time)
+            .fold(0.0_f32, f32::max)
+            + 1.0;
+        app.map.CreepWave[w].Detail[d].Creeps.push(crate::schema::CreepsJD {
+            Time: next_t,
+            Creep: creep.clone(),
+        });
+        app.wave_edit.last_inserted_creep = Some(creep);
+        app.dirty = true;
+    }
+    ui.spacer(4.0);
+    if ui.button("Delete Detail").ghost().draw() {
+        app.begin_edit(None);
+        app.map.CreepWave[w].Detail.remove(d);
+        app.selection = Selection::Wave(w);
+        app.dirty = true;
+    }
 }
 
 fn draw_spawn(ui: &mut UI, app: &mut AppState, w: usize, d: usize, s: usize) {
@@ -107,6 +148,14 @@ fn draw_spawn(ui: &mut UI, app: &mut AppState, w: usize, d: usize, s: usize) {
     if input_str(ui, "Creep", &mut creep) {
         app.begin_edit(None);
         app.map.CreepWave[w].Detail[d].Creeps[s].Creep = creep;
+        app.dirty = true;
+    }
+
+    ui.spacer(8.0);
+    if ui.button("Delete Spawn").ghost().draw() {
+        app.begin_edit(None);
+        app.map.CreepWave[w].Detail[d].Creeps.remove(s);
+        app.selection = Selection::WaveDetail(w, d);
         app.dirty = true;
     }
 }
