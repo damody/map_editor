@@ -7,6 +7,7 @@ mod panels;
 mod schema;
 mod style;
 mod undo;
+mod wave_ops;
 
 use eui::{AppOptions, Rect};
 

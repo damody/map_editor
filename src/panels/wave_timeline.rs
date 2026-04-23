@@ -1,7 +1,7 @@
 use eui::quick::ui::UI;
 use eui::{Rect, TextAlign};
 
-use crate::app::{AppState, Selection, WaveZoom};
+use crate::app::{AppState, Selection, SpawnDrag, WaveZoom};
 use crate::style::{
     FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_DOT_R, WAVE_HEADER_H, WAVE_LANE_H, WAVE_RULER_H,
 };
@@ -58,9 +58,9 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         if w_idx >= app.map.CreepWave.len() {
             return;
         }
-        let wave = app.map.CreepWave[w_idx].clone();
 
-        let total_sec = wave
+        // 計算 px_per_sec 先用尚未更新的 map（drag 前），避免畫面閃爍
+        let total_sec = app.map.CreepWave[w_idx]
             .Detail
             .iter()
             .flat_map(|d| d.Creeps.iter().map(|c| c.Time))
@@ -71,6 +71,36 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             WaveZoom::Fit => ((r.w - 16.0 - 110.0) / total_sec).max(1.0),
             WaveZoom::Fixed(s) => s,
         };
+
+        // ── 處理 drag 更新（在畫之前修改 map，本幀即可看到新位置）──
+        if let Some(drag) = app.wave_edit.drag.clone() {
+            let new_time = drag.orig_time + (mx - drag.start_mouse_x) / px_per_sec;
+            let delta = new_time - drag.orig_time;
+            let (dw, dd, ds) = drag.sel;
+            if drag.batch_after {
+                for (offset, ot) in drag.orig_times.iter().enumerate() {
+                    let target_idx = ds + offset;
+                    if let Some(sp) =
+                        app.map.CreepWave[dw].Detail[dd].Creeps.get_mut(target_idx)
+                    {
+                        sp.Time = (ot + delta).max(0.0);
+                    }
+                }
+            } else {
+                crate::wave_ops::drag_spawn_time(
+                    &mut app.map.CreepWave[dw],
+                    dd,
+                    ds,
+                    new_time,
+                );
+            }
+            app.dirty = true;
+            if !input.mouse_down {
+                app.wave_edit.drag = None;
+            }
+        }
+
+        let wave = app.map.CreepWave[w_idx].clone();
 
         let header = Rect::new(r.x, r.y, r.w, WAVE_HEADER_H);
         let title = format!("{}  StartTime={:.1}s", wave.Name, wave.StartTime);
@@ -83,7 +113,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         let ruler_color = eui::rgba(0.25, 0.27, 0.30, 1.0);
         ui.paint_filled_rect(ruler_rect, ruler_color, 0.0);
         let scroll_x = app.wave_edit.scroll_x;
-        let max_visible_sec = ((ruler_rect.w) / px_per_sec).ceil() as i32 + 1;
+        let max_visible_sec = (ruler_rect.w / px_per_sec).ceil() as i32 + 1;
         for s in 0..max_visible_sec {
             let cx = ruler_rect.x + s as f32 * px_per_sec - scroll_x;
             if cx < ruler_rect.x || cx > ruler_rect.x + ruler_rect.w {
@@ -101,7 +131,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             );
         }
 
-        let mut hit_spawn: Option<(usize, usize, usize)> = None;
+        let mut hit_spawn: Option<(usize, usize, usize, f32)> = None;
         let mut hit_lane: Option<(usize, usize)> = None;
 
         let lanes_y = ruler_y + WAVE_RULER_H + 4.0;
@@ -176,7 +206,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 let dx = mx - cx;
                 let dy = my - cy;
                 if dx * dx + dy * dy <= WAVE_DOT_R * WAVE_DOT_R {
-                    hit_spawn = Some((w_idx, di, si));
+                    hit_spawn = Some((w_idx, di, si, spawn.Time));
                 }
             }
 
@@ -185,9 +215,22 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
         }
 
-        if input.mouse_pressed {
-            if let Some((w, d, s)) = hit_spawn {
+        // 點擊 → 選中 + 可能啟動 drag
+        if input.mouse_pressed && app.wave_edit.drag.is_none() {
+            if let Some((w, d, s, orig_time)) = hit_spawn {
                 app.selection = Selection::WaveSpawn(w, d, s);
+                let orig_times: Vec<f32> = app.map.CreepWave[w].Detail[d].Creeps[s..]
+                    .iter()
+                    .map(|c| c.Time)
+                    .collect();
+                app.begin_edit(Some("wave_drag_time"));
+                app.wave_edit.drag = Some(SpawnDrag {
+                    sel: (w, d, s),
+                    start_mouse_x: mx,
+                    orig_time,
+                    batch_after: input.key_shift,
+                    orig_times,
+                });
             } else if let Some((w, d)) = hit_lane {
                 app.selection = Selection::WaveDetail(w, d);
             }
