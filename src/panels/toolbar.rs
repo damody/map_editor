@@ -155,6 +155,18 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                     app.view_mode = ViewMode::Entities;
                 }
             }
+            {
+                let br = Rect::new(x, row.y, cell_w, row.h);
+                x += cell_w + TOOLBAR_CELL_GAP;
+                let style = if app.view_mode == ViewMode::Waves {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Ghost
+                };
+                if ui.button("Waves").rect(br).style(style).draw() {
+                    app.view_mode = ViewMode::Waves;
+                }
+            }
 
             x += TOOLBAR_GROUP_GAP;
             // 狀態文字：map + 其他已載入檔案的 dirty 標記
