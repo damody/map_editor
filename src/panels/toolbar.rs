@@ -1,9 +1,31 @@
 use eui::quick::ui::UI;
-use eui::{ButtonStyle, Rect};
+use eui::{ButtonStyle, Rect, TextAlign};
 
 use crate::app::{AppState, Tool, ViewMode};
 use crate::io;
 use crate::style::{FS_BODY, TOOLBAR_CELL_GAP, TOOLBAR_CELL_W, TOOLBAR_GROUP_GAP};
+
+/// 自繪 ViewMode 切換按鈕（可指定底色，讓 Map/Entities/Waves 三顆在視覺上明顯不同）
+fn mode_btn(ui: &mut UI, rect: Rect, label: &str, selected: bool, hue: eui::Color) -> bool {
+    let input = ui.ctx().input().clone();
+    let (mx, my) = (input.mouse_x, input.mouse_y);
+    let hover = rect.contains(mx, my);
+    let bg = if selected {
+        hue
+    } else if hover {
+        eui::rgba(hue.r * 0.40, hue.g * 0.40, hue.b * 0.40, 1.0)
+    } else {
+        eui::rgba(hue.r * 0.22, hue.g * 0.22, hue.b * 0.22, 1.0)
+    };
+    ui.paint_filled_rect(rect, bg, 6.0);
+    let text_color = if selected {
+        eui::rgba(1.0, 1.0, 1.0, 1.0)
+    } else {
+        eui::rgba(0.92, 0.92, 0.92, 1.0)
+    };
+    ui.ctx().paint_text(rect, label, FS_BODY, text_color, TextAlign::Center);
+    hover && input.mouse_pressed
+}
 
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
@@ -130,40 +152,28 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
 
             x += TOOLBAR_GROUP_GAP;
-            // ViewMode 切換：Map / Entities
+            // ViewMode 切換：Map（藍）/ Entities（綠）/ Waves（紫），三色自繪以利辨識
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
                 x += cell_w + TOOLBAR_CELL_GAP;
-                let style = if app.view_mode == ViewMode::Map {
-                    ButtonStyle::Primary
-                } else {
-                    ButtonStyle::Ghost
-                };
-                if ui.button("Map").rect(br).style(style).draw() {
+                let hue = eui::rgba(0.23, 0.56, 0.83, 1.0);
+                if mode_btn(&mut ui, br, "Map", app.view_mode == ViewMode::Map, hue) {
                     app.view_mode = ViewMode::Map;
                 }
             }
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
                 x += cell_w + TOOLBAR_CELL_GAP;
-                let style = if app.view_mode == ViewMode::Entities {
-                    ButtonStyle::Primary
-                } else {
-                    ButtonStyle::Ghost
-                };
-                if ui.button("Entities").rect(br).style(style).draw() {
+                let hue = eui::rgba(0.23, 0.71, 0.36, 1.0);
+                if mode_btn(&mut ui, br, "Entities", app.view_mode == ViewMode::Entities, hue) {
                     app.view_mode = ViewMode::Entities;
                 }
             }
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
                 x += cell_w + TOOLBAR_CELL_GAP;
-                let style = if app.view_mode == ViewMode::Waves {
-                    ButtonStyle::Primary
-                } else {
-                    ButtonStyle::Ghost
-                };
-                if ui.button("Waves").rect(br).style(style).draw() {
+                let hue = eui::rgba(0.64, 0.31, 0.82, 1.0);
+                if mode_btn(&mut ui, br, "Waves", app.view_mode == ViewMode::Waves, hue) {
                     app.view_mode = ViewMode::Waves;
                 }
             }
