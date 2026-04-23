@@ -1,12 +1,11 @@
 use eui::quick::ui::UI;
 use eui::{Rect, TextAlign};
 
-use crate::app::{AppState, Selection, SpawnDrag, WaveZoom};
+use crate::app::{AppState, CtxMenu, Selection, SpawnDrag, WaveZoom};
 use crate::style::{
     FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_DOT_R, WAVE_HEADER_H, WAVE_LANE_H, WAVE_RULER_H,
 };
 
-/// 由 creep_name hash 決定顏色（固定 8 色 palette）
 fn creep_color(name: &str) -> eui::Color {
     const PALETTE: [(f32, f32, f32); 8] = [
         (0.30, 0.78, 0.45),
@@ -59,7 +58,6 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             return;
         }
 
-        // 計算 px_per_sec 先用尚未更新的 map（drag 前），避免畫面閃爍
         let total_sec = app.map.CreepWave[w_idx]
             .Detail
             .iter()
@@ -72,7 +70,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             WaveZoom::Fixed(s) => s,
         };
 
-        // ── 處理 drag 更新（在畫之前修改 map，本幀即可看到新位置）──
+        // ── drag update ───────────────────────────────────
         if let Some(drag) = app.wave_edit.drag.clone() {
             let new_time = drag.orig_time + (mx - drag.start_mouse_x) / px_per_sec;
             let delta = new_time - drag.orig_time;
@@ -132,7 +130,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         }
 
         let mut hit_spawn: Option<(usize, usize, usize, f32)> = None;
-        let mut hit_lane: Option<(usize, usize)> = None;
+        let mut hit_lane: Option<(usize, usize, f32)> = None; // (w, d, click_time_sec)
 
         let lanes_y = ruler_y + WAVE_RULER_H + 4.0;
         for (di, detail) in wave.Detail.iter().enumerate() {
@@ -211,12 +209,139 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
 
             if hit_spawn.is_none() && lane_rect.contains(mx, my) {
-                hit_lane = Some((w_idx, di));
+                let click_time = ((mx - lane_origin_x + scroll_x) / px_per_sec).max(0.0);
+                hit_lane = Some((w_idx, di, click_time));
             }
         }
 
-        // 點擊 → 選中 + 可能啟動 drag
-        if input.mouse_pressed && app.wave_edit.drag.is_none() {
+        // ── 右鍵 → 開啟 context menu ──────────────────────
+        if input.mouse_right_pressed {
+            if let Some((w, d, s, _)) = hit_spawn {
+                app.wave_edit.context_menu = Some(CtxMenu::Spawn {
+                    sel: (w, d, s),
+                    screen_pos: (mx, my),
+                });
+            } else if let Some((w, d, click_time)) = hit_lane {
+                app.wave_edit.context_menu = Some(CtxMenu::Empty {
+                    wave: w,
+                    detail: d,
+                    time: click_time,
+                    screen_pos: (mx, my),
+                });
+            }
+        }
+
+        // ── 繪製 context menu + 處理點選 ──────────────────
+        let menu_consumed_click = if let Some(menu) = app.wave_edit.context_menu.clone() {
+            let (sx, sy) = match &menu {
+                CtxMenu::Empty { screen_pos, .. } => *screen_pos,
+                CtxMenu::Spawn { screen_pos, .. } => *screen_pos,
+            };
+            let menu_w = 220.0_f32;
+            let item_h = 28.0_f32;
+            let items: Vec<String> = match &menu {
+                CtxMenu::Empty { time, .. } => app
+                    .map
+                    .Creep
+                    .iter()
+                    .map(|c| format!("+ 插入 {} @ {:.1}s", c.Name, time))
+                    .collect(),
+                CtxMenu::Spawn { .. } => {
+                    vec!["刪除".into(), "複製到 +1s".into()]
+                }
+            };
+            let menu_h = items.len() as f32 * item_h + 4.0;
+            let menu_rect = Rect::new(sx, sy, menu_w, menu_h);
+            ui.paint_filled_rect(menu_rect, eui::rgba(0.18, 0.19, 0.21, 0.98), 4.0);
+
+            let mut clicked: Option<usize> = None;
+            for (i, label) in items.iter().enumerate() {
+                let item_rect =
+                    Rect::new(sx + 2.0, sy + 2.0 + i as f32 * item_h, menu_w - 4.0, item_h);
+                let hover = item_rect.contains(mx, my);
+                if hover {
+                    ui.paint_filled_rect(item_rect, eui::rgba(0.30, 0.55, 0.85, 0.5), 2.0);
+                }
+                ui.ctx().paint_text(
+                    Rect::new(item_rect.x + 8.0, item_rect.y, item_rect.w - 8.0, item_rect.h),
+                    label,
+                    FS_LABEL,
+                    eui::rgba(0.95, 0.95, 0.95, 1.0),
+                    TextAlign::Left,
+                );
+                if hover && input.mouse_pressed {
+                    clicked = Some(i);
+                }
+            }
+
+            let over_menu = menu_rect.contains(mx, my);
+            if let Some(i) = clicked {
+                match menu.clone() {
+                    CtxMenu::Empty {
+                        wave,
+                        detail,
+                        time,
+                        ..
+                    } => {
+                        if let Some(creep) = app.map.Creep.get(i).map(|c| c.Name.clone()) {
+                            app.begin_edit(None);
+                            app.map.CreepWave[wave].Detail[detail].Creeps.push(
+                                crate::schema::CreepsJD {
+                                    Time: time,
+                                    Creep: creep.clone(),
+                                },
+                            );
+                            app.wave_edit.last_inserted_creep = Some(creep);
+                            app.dirty = true;
+                        }
+                    }
+                    CtxMenu::Spawn { sel, .. } => {
+                        let (w, d, s) = sel;
+                        match i {
+                            0 => {
+                                // 刪除
+                                app.begin_edit(None);
+                                if s < app.map.CreepWave[w].Detail[d].Creeps.len() {
+                                    app.map.CreepWave[w].Detail[d].Creeps.remove(s);
+                                }
+                                app.selection = Selection::WaveDetail(w, d);
+                                app.dirty = true;
+                            }
+                            1 => {
+                                // 複製到 +1s
+                                if let Some(src) =
+                                    app.map.CreepWave[w].Detail[d].Creeps.get(s).cloned()
+                                {
+                                    let mut copy = src;
+                                    copy.Time += 1.0;
+                                    app.begin_edit(None);
+                                    app.map.CreepWave[w].Detail[d]
+                                        .Creeps
+                                        .insert(s + 1, copy);
+                                    app.dirty = true;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                app.wave_edit.context_menu = None;
+                true
+            } else if input.mouse_pressed && !over_menu {
+                app.wave_edit.context_menu = None;
+                true
+            } else if input.key_escape {
+                app.wave_edit.context_menu = None;
+                false
+            } else {
+                over_menu
+            }
+        } else {
+            false
+        };
+
+        // ── 左鍵點擊 → 選中 / 啟動 drag（menu 未攔截時）──
+        if input.mouse_pressed && !menu_consumed_click && app.wave_edit.drag.is_none() {
             if let Some((w, d, s, orig_time)) = hit_spawn {
                 app.selection = Selection::WaveSpawn(w, d, s);
                 let orig_times: Vec<f32> = app.map.CreepWave[w].Detail[d].Creeps[s..]
@@ -231,7 +356,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                     batch_after: input.key_shift,
                     orig_times,
                 });
-            } else if let Some((w, d)) = hit_lane {
+            } else if let Some((w, d, _)) = hit_lane {
                 app.selection = Selection::WaveDetail(w, d);
             }
         }
