@@ -36,6 +36,51 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             if waves.is_empty() {
                 ui.label("(無 wave)").font_size(FS_LABEL).draw();
             }
+
+            ui.spacer(12.0);
+            if ui.button("+ Add Wave").style(ButtonStyle::Primary).draw() {
+                app.begin_edit(None);
+                let new_idx = crate::wave_ops::add_wave(&mut app.map);
+                app.wave_edit.selected_wave = Some(new_idx);
+                app.selection = Selection::Wave(new_idx);
+                app.dirty = true;
+            }
+            ui.spacer(2.0);
+
+            if let Some(sel) = app.wave_edit.selected_wave {
+                if ui.button("Duplicate").secondary().draw() {
+                    app.begin_edit(None);
+                    if let Some(new_idx) = crate::wave_ops::duplicate_wave(&mut app.map, sel) {
+                        app.wave_edit.selected_wave = Some(new_idx);
+                        app.selection = Selection::Wave(new_idx);
+                        app.dirty = true;
+                    }
+                }
+                ui.spacer(2.0);
+
+                let confirming = matches!(
+                    app.wave_edit.pending_delete_wave,
+                    Some((i, t)) if i == sel && t.elapsed().as_secs() < 5
+                );
+                let label = if confirming { "再點一次刪除" } else { "Delete" };
+                let style = if confirming {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Ghost
+                };
+                if ui.button(label).style(style).draw() {
+                    if confirming {
+                        app.begin_edit(None);
+                        crate::wave_ops::delete_wave(&mut app.map, sel);
+                        app.wave_edit.selected_wave = None;
+                        app.selection = Selection::None;
+                        app.wave_edit.pending_delete_wave = None;
+                        app.dirty = true;
+                    } else {
+                        app.wave_edit.pending_delete_wave = Some((sel, std::time::Instant::now()));
+                    }
+                }
+            }
         });
     });
 }
