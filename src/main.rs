@@ -171,7 +171,7 @@ fn main() {
                     content.w,
                     (content.h - toolbar_h).max(0.0),
                 );
-                panels::waves::draw(ui, body_rect, &mut state);
+                panels::waves::draw_wave_mode(ui, body_rect, &mut state);
             }
             _ => {
                 panels::templates::draw(ui, templates_rect, &mut state);
