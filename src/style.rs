@@ -76,3 +76,18 @@ pub const TOOLBAR_CELL_W: f32 = BASE_TOOLBAR_CELL_W * UI_SCALE;
 pub const TOOLBAR_CELL_GAP: f32 = 4.0;
 /// 按鈕群組之間的分隔距離
 pub const TOOLBAR_GROUP_GAP: f32 = 16.0;
+
+// ---- Wave 編輯模式 ----
+const BASE_WAVE_LIST_W: f32 = 150.0;
+const BASE_WAVE_LANE_H: f32 = 36.0;
+const BASE_WAVE_HEADER_H: f32 = 28.0;
+const BASE_WAVE_RULER_H: f32 = 18.0;
+
+pub const WAVE_LIST_W: f32 = BASE_WAVE_LIST_W * UI_SCALE;
+pub const WAVE_LANE_H: f32 = BASE_WAVE_LANE_H * UI_SCALE;
+pub const WAVE_HEADER_H: f32 = BASE_WAVE_HEADER_H * UI_SCALE;
+pub const WAVE_RULER_H: f32 = BASE_WAVE_RULER_H * UI_SCALE;
+pub const WAVE_DOT_R: f32 = 9.0 * UI_SCALE;
+pub const WAVE_PX_PER_SEC_DEFAULT: f32 = 50.0;
+pub const WAVE_PX_PER_SEC_MIN: f32 = 10.0;
+pub const WAVE_PX_PER_SEC_MAX: f32 = 500.0;
