@@ -106,6 +106,9 @@ pub struct AppState {
     /// Inspector 分隔條拖拉中的起始寬度（拖拉起始時記 None → Some）
     pub inspector_resize_start: Option<(f32, f32)>, // (start_mouse_x, start_width)
 
+    /// Wave 編輯模式專屬狀態
+    pub wave_edit: WaveEditState,
+
     /// Undo/Redo 堆疊
     pub undo: UndoStack,
 }
@@ -150,6 +153,7 @@ impl Default for AppState {
             current_path_idx: None,
             inspector_w: crate::style::RIGHT_W,
             inspector_resize_start: None,
+            wave_edit: WaveEditState::default(),
             undo: UndoStack::new(),
         }
     }
@@ -185,4 +189,54 @@ impl AppState {
         self.drag_state = None;
         self.region_draft.clear();
     }
+}
+
+// ── Wave 編輯模式專屬狀態 ─────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WaveZoom {
+    Fit,
+    Fixed(f32),
+}
+
+impl Default for WaveZoom {
+    fn default() -> Self {
+        WaveZoom::Fit
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SpawnDrag {
+    pub sel: (usize, usize, usize),
+    pub start_mouse_x: f32,
+    pub orig_time: f32,
+    pub batch_after: bool,
+    /// batch_after 模式下，drag 開始時從 sel.2 起的原始 times（避免累加漂移）
+    pub orig_times: Vec<f32>,
+}
+
+#[derive(Debug, Clone)]
+pub enum CtxMenu {
+    Empty {
+        wave: usize,
+        detail: usize,
+        time: f32,
+        screen_pos: (f32, f32),
+    },
+    Spawn {
+        sel: (usize, usize, usize),
+        screen_pos: (f32, f32),
+    },
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WaveEditState {
+    pub selected_wave: Option<usize>,
+    pub zoom_mode: WaveZoom,
+    pub scroll_x: f32,
+    pub drag: Option<SpawnDrag>,
+    pub context_menu: Option<CtxMenu>,
+    pub last_inserted_creep: Option<String>,
+    /// 二次點擊確認刪除：(wave_idx, 第一次點擊時間)
+    pub pending_delete_wave: Option<(usize, std::time::Instant)>,
 }
