@@ -161,34 +161,48 @@ fn main() {
         );
 
         panels::toolbar::draw(ui, toolbar_rect, &mut state);
-        panels::templates::draw(ui, templates_rect, &mut state);
-        panels::inspector::draw(ui, inspector_rect, &mut state);
-        panels::waves::draw(ui, waves_rect, &mut state);
-        canvas::draw(ui, canvas_rect, &mut state);
 
-        // ── 分隔條（可拖拉調整 inspector 寬度）──────────────
-        let splitter_color = eui::rgba(0.30, 0.33, 0.36, 1.0);
-        let splitter_color_hover = eui::rgba(0.55, 0.60, 0.65, 1.0);
-        let mx = input_snapshot.mouse_x;
-        let my = input_snapshot.mouse_y;
-        let hover = splitter_rect.contains(mx, my);
-        let dragging = state.inspector_resize_start.is_some();
-        ui.paint_filled_rect(
-            splitter_rect,
-            if hover || dragging { splitter_color_hover } else { splitter_color },
-            0.0,
-        );
+        match state.view_mode {
+            crate::app::ViewMode::Waves => {
+                let body_rect = Rect::new(
+                    content.x,
+                    content.y + toolbar_h,
+                    content.w,
+                    (content.h - toolbar_h).max(0.0),
+                );
+                panels::waves::draw(ui, body_rect, &mut state);
+            }
+            _ => {
+                panels::templates::draw(ui, templates_rect, &mut state);
+                panels::inspector::draw(ui, inspector_rect, &mut state);
+                panels::waves::draw(ui, waves_rect, &mut state);
+                canvas::draw(ui, canvas_rect, &mut state);
 
-        if hover && input_snapshot.mouse_pressed {
-            state.inspector_resize_start = Some((mx, state.inspector_w));
-        }
-        if let Some((start_mx, start_w)) = state.inspector_resize_start {
-            if input_snapshot.mouse_down {
-                // 拖動：滑鼠往左 → 寬度變大；往右 → 寬度變小
-                let new_w = (start_w + (start_mx - mx)).clamp(min_w, max_w);
-                state.inspector_w = new_w;
-            } else {
-                state.inspector_resize_start = None;
+                // ── 分隔條（可拖拉調整 inspector 寬度）──────────────
+                let splitter_color = eui::rgba(0.30, 0.33, 0.36, 1.0);
+                let splitter_color_hover = eui::rgba(0.55, 0.60, 0.65, 1.0);
+                let mx = input_snapshot.mouse_x;
+                let my = input_snapshot.mouse_y;
+                let hover = splitter_rect.contains(mx, my);
+                let dragging = state.inspector_resize_start.is_some();
+                ui.paint_filled_rect(
+                    splitter_rect,
+                    if hover || dragging { splitter_color_hover } else { splitter_color },
+                    0.0,
+                );
+
+                if hover && input_snapshot.mouse_pressed {
+                    state.inspector_resize_start = Some((mx, state.inspector_w));
+                }
+                if let Some((start_mx, start_w)) = state.inspector_resize_start {
+                    if input_snapshot.mouse_down {
+                        // 拖動：滑鼠往左 → 寬度變大；往右 → 寬度變小
+                        let new_w = (start_w + (start_mx - mx)).clamp(min_w, max_w);
+                        state.inspector_w = new_w;
+                    } else {
+                        state.inspector_resize_start = None;
+                    }
+                }
             }
         }
     }, opts);
