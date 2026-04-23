@@ -3,7 +3,8 @@ use eui::{Rect, TextAlign};
 
 use crate::app::{AppState, CtxMenu, Selection, SpawnDrag, WaveZoom};
 use crate::style::{
-    FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_DOT_R, WAVE_HEADER_H, WAVE_LANE_H, WAVE_RULER_H,
+    FS_CAPTION, FS_LABEL, FS_SUBHEAD, WAVE_DOT_R, WAVE_HEADER_H, WAVE_LANE_H,
+    WAVE_PX_PER_SEC_DEFAULT, WAVE_PX_PER_SEC_MAX, WAVE_PX_PER_SEC_MIN, WAVE_RULER_H,
 };
 
 fn creep_color(name: &str) -> eui::Color {
@@ -105,6 +106,71 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         let muted = ui.theme().muted_text;
         ui.ctx()
             .paint_text(header, &title, FS_SUBHEAD, muted, TextAlign::Left);
+
+        // ── Fit / Fixed zoom 按鈕 ─────────────────────────
+        let btn_w = 60.0_f32;
+        let fit_rect = Rect::new(
+            r.x + r.w - 2.0 * btn_w - 12.0,
+            r.y + 2.0,
+            btn_w,
+            WAVE_HEADER_H - 4.0,
+        );
+        let fixed_rect = Rect::new(
+            r.x + r.w - btn_w - 6.0,
+            r.y + 2.0,
+            btn_w,
+            WAVE_HEADER_H - 4.0,
+        );
+        let active = eui::rgba(0.30, 0.55, 0.85, 1.0);
+        let inactive = eui::rgba(0.20, 0.22, 0.25, 1.0);
+        let (fit_c, fixed_c) = match app.wave_edit.zoom_mode {
+            WaveZoom::Fit => (active, inactive),
+            WaveZoom::Fixed(_) => (inactive, active),
+        };
+        ui.paint_filled_rect(fit_rect, fit_c, 4.0);
+        ui.paint_filled_rect(fixed_rect, fixed_c, 4.0);
+        ui.ctx().paint_text(
+            fit_rect,
+            "Fit",
+            FS_CAPTION,
+            eui::rgba(1.0, 1.0, 1.0, 1.0),
+            TextAlign::Center,
+        );
+        ui.ctx().paint_text(
+            fixed_rect,
+            "Fixed",
+            FS_CAPTION,
+            eui::rgba(1.0, 1.0, 1.0, 1.0),
+            TextAlign::Center,
+        );
+        let btn_consumed_click = if input.mouse_pressed && fit_rect.contains(mx, my) {
+            app.wave_edit.zoom_mode = WaveZoom::Fit;
+            app.wave_edit.scroll_x = 0.0;
+            true
+        } else if input.mouse_pressed && fixed_rect.contains(mx, my) {
+            if matches!(app.wave_edit.zoom_mode, WaveZoom::Fit) {
+                app.wave_edit.zoom_mode = WaveZoom::Fixed(WAVE_PX_PER_SEC_DEFAULT);
+            }
+            true
+        } else {
+            false
+        };
+
+        // ── Ctrl+滾輪 → 縮放；Shift+滾輪 → 水平卷動 ───────
+        if r.contains(mx, my) && input.mouse_wheel_y.abs() > 0.0 {
+            if input.key_ctrl {
+                let cur = match app.wave_edit.zoom_mode {
+                    WaveZoom::Fit => WAVE_PX_PER_SEC_DEFAULT,
+                    WaveZoom::Fixed(s) => s,
+                };
+                let factor = if input.mouse_wheel_y > 0.0 { 1.2 } else { 1.0 / 1.2 };
+                let ns = (cur * factor).clamp(WAVE_PX_PER_SEC_MIN, WAVE_PX_PER_SEC_MAX);
+                app.wave_edit.zoom_mode = WaveZoom::Fixed(ns);
+            } else if input.key_shift {
+                app.wave_edit.scroll_x =
+                    (app.wave_edit.scroll_x - input.mouse_wheel_y * 30.0).max(0.0);
+            }
+        }
 
         let ruler_y = r.y + WAVE_HEADER_H;
         let ruler_rect = Rect::new(r.x + 8.0 + 110.0, ruler_y, r.w - 16.0 - 110.0, WAVE_RULER_H);
@@ -340,8 +406,12 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             false
         };
 
-        // ── 左鍵點擊 → 選中 / 啟動 drag（menu 未攔截時）──
-        if input.mouse_pressed && !menu_consumed_click && app.wave_edit.drag.is_none() {
+        // ── 左鍵點擊 → 選中 / 啟動 drag（menu / zoom 按鈕未攔截時）──
+        if input.mouse_pressed
+            && !menu_consumed_click
+            && !btn_consumed_click
+            && app.wave_edit.drag.is_none()
+        {
             if let Some((w, d, s, orig_time)) = hit_spawn {
                 app.selection = Selection::WaveSpawn(w, d, s);
                 let orig_times: Vec<f32> = app.map.CreepWave[w].Detail[d].Creeps[s..]
