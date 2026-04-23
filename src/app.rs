@@ -17,6 +17,12 @@ pub enum Selection {
     // entity.json
     Hero(usize),
     Enemy(usize),
+    /// 選中整波（Inspector 顯示 Name / StartTime / + Detail）
+    Wave(usize),
+    /// (wave_idx, detail_idx) — 選中 wave 內某條 lane
+    WaveDetail(usize, usize),
+    /// (wave, detail, spawn) — 選中 timeline 上的某顆 spawn 圓
+    WaveSpawn(usize, usize, usize),
 }
 
 impl Default for Selection {
@@ -45,6 +51,7 @@ impl Default for Tool {
 pub enum ViewMode {
     Map,
     Entities,
+    Waves,
 }
 
 impl Default for ViewMode {

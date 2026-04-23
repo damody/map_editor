@@ -77,6 +77,9 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
                 Selection::CreepTemplate(i) => draw_creep_template(&mut ui, app, i),
                 Selection::Hero(i) => draw_hero(&mut ui, app, i),
                 Selection::Enemy(i) => draw_enemy(&mut ui, app, i),
+                Selection::Wave(_)
+                | Selection::WaveDetail(_, _)
+                | Selection::WaveSpawn(_, _, _) => {}
             }
         });
     });

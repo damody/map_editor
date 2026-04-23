@@ -17,6 +17,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             match app.view_mode {
                 ViewMode::Map => draw_map_mode(&mut ui, app),
                 ViewMode::Entities => draw_entities_mode(&mut ui, app),
+                ViewMode::Waves => {}
             }
         });
     });
