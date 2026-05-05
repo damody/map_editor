@@ -6,7 +6,7 @@ use crate::undo::{Snapshot, UndoStack};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
     None,
-    // map.json
+    // map.lua / generated map data
     Structure(usize),
     CheckPoint(usize),
     BlockedRegion(usize),
@@ -14,7 +14,7 @@ pub enum Selection {
     BlockedRegionPoint(usize, usize),
     TowerTemplate(usize),
     CreepTemplate(usize),
-    // entity.json
+    // entity.lua / generated entity data
     Hero(usize),
     Enemy(usize),
     /// 選中整波（Inspector 顯示 Name / StartTime / + Detail）
@@ -70,12 +70,12 @@ pub struct AppState {
     pub entity_path: Option<std::path::PathBuf>,
     pub entity_dirty: bool,
 
-    /// ability.json 原樣保留為 Value（目前僅支援另存往返，不做 typed editing）
+    /// ability.lua 原樣保留為 Value（目前僅支援另存往返，不做 typed editing）
     pub ability: serde_json::Value,
     pub ability_path: Option<std::path::PathBuf>,
     pub ability_dirty: bool,
 
-    /// mission.json 原樣保留為 Value
+    /// mission.lua 原樣保留為 Value
     pub mission: serde_json::Value,
     pub mission_path: Option<std::path::PathBuf>,
     pub mission_dirty: bool,

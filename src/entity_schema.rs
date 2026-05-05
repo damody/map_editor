@@ -1,7 +1,7 @@
 //! Mirror of `omb/src/ue4/import_campaign.rs` 裡的 HeroJD / EnemyJD
-//! （entity.json 的 snake_case 格式）。
+//! （entity.lua 的 snake_case table shape）。
 //!
-//! 本模組只包含 entity.json 必要的子集（heroes + enemies），其他欄位
+//! 本模組只包含 entity.lua 必要的子集（heroes + enemies），其他欄位
 //! （abilities / mission / creeps / neutrals / summons 等）透過 serde
 //! 的 flatten `extra` 欄位原樣保留，確保存檔不會遺失資料。
 
@@ -15,7 +15,7 @@ pub struct EntityConfig {
     pub heroes: Vec<HeroJD>,
     #[serde(default)]
     pub enemies: Vec<EnemyJD>,
-    /// 原樣保留 entity.json 其他欄位（creeps / neutrals / summons 等），
+    /// 原樣保留 entity.lua 其他欄位（creeps / neutrals / summons 等），
     /// 避免存檔時被截掉。
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,

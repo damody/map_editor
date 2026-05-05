@@ -1,5 +1,5 @@
-//! Mirror of `omb/src/ue4/import_map.rs`. Serde-compatible with map.json.
-//! 欄位命名維持 PascalCase 以符合既有 map.json 格式。
+//! Mirror of `omb/src/ue4/import_map.rs` for generated map data.
+//! 欄位命名維持 PascalCase 以符合既有 map.lua table shape。
 
 #![allow(non_snake_case)]
 
@@ -39,11 +39,16 @@ pub struct PathJD {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct CreepJD {
     pub Name: String,
+    /// Legacy JSON-only field. Generated map data omits map-local labels/stats.
     #[serde(default)]
     pub Label: Option<String>,
+    #[serde(default)]
     pub HP: f32,
+    #[serde(default)]
     pub DefendPhysic: f32,
+    #[serde(default)]
     pub DefendMagic: f32,
+    #[serde(default)]
     pub MoveSpeed: f32,
     #[serde(default)]
     pub Faction: Option<String>,
@@ -121,15 +126,11 @@ pub struct PointJD {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::strip_json_comments_public;
-
     #[test]
-    fn parse_mvp1_map_json() {
-        let raw = std::fs::read_to_string("../omb/Story/MVP_1/map.json")
-            .expect("read map.json");
-        let cleaned = strip_json_comments_public(&raw);
-        let data: CreepWaveData = serde_json::from_str(&cleaned)
-            .expect("parse CreepWaveData");
+    fn parse_mvp1_generated_map() {
+        let story = omoba_template_ids::story_by_name("MVP_1").expect("generated MVP_1 story");
+        let data: CreepWaveData = serde_json::from_value(story_value_to_json(story.map))
+            .expect("parse generated CreepWaveData");
         assert!(!data.Path.is_empty());
         assert!(!data.CheckPoint.is_empty());
         assert!(!data.Structures.is_empty());
@@ -140,6 +141,35 @@ mod tests {
         let back = serde_json::to_string_pretty(&data).expect("serialize");
         let data2: CreepWaveData = serde_json::from_str(&back).expect("reparse");
         assert_eq!(data.Structures.len(), data2.Structures.len());
+    }
+
+    fn story_value_to_json(value: omoba_template_ids::StoryValue) -> serde_json::Value {
+        match value {
+            omoba_template_ids::StoryValue::Null => serde_json::Value::Null,
+            omoba_template_ids::StoryValue::Bool(value) => serde_json::Value::Bool(value),
+            omoba_template_ids::StoryValue::Number(value) => json_number(value),
+            omoba_template_ids::StoryValue::String(value) => serde_json::Value::String(value.to_string()),
+            omoba_template_ids::StoryValue::Array(values) => {
+                serde_json::Value::Array(values.iter().copied().map(story_value_to_json).collect())
+            }
+            omoba_template_ids::StoryValue::Object(values) => {
+                let mut map = serde_json::Map::new();
+                for (key, value) in values.iter().copied() {
+                    map.insert(key.to_string(), story_value_to_json(value));
+                }
+                serde_json::Value::Object(map)
+            }
+        }
+    }
+
+    fn json_number(value: f64) -> serde_json::Value {
+        if value.fract() == 0.0 && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+            serde_json::Value::Number(serde_json::Number::from(value as i64))
+        } else {
+            serde_json::Number::from_f64(value)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null)
+        }
     }
 
     #[test]

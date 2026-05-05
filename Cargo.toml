@@ -2,10 +2,11 @@
 name = "map_editor"
 version = "0.1.0"
 edition = "2021"
-description = "Visual map editor for omoba MOBA (produces map.json)"
+description = "Visual map editor for omoba MOBA Lua story content"
 
 [dependencies]
 eui = { path = "../eui" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rfd = "0.14"
+omoba-template-ids = { path = "../omoba-template-ids" }

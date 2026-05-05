@@ -39,7 +39,7 @@ fn main() {
     if let Some(path_arg) = std::env::args().nth(1) {
         let p = std::path::PathBuf::from(&path_arg);
         if p.is_dir() {
-            // 目錄模式：一次載入 4 個 JSON
+            // 目錄模式：優先載入 generated story data，否則 fallback 到 legacy JSON import。
             let (mp, ep, ap, misp) = io::load_campaign_dir(&p);
             if let Some((path, data)) = mp {
                 if let Some(t) = data.Tower.first() {
@@ -48,7 +48,7 @@ fn main() {
                 state.map = data;
                 state.current_path = Some(path);
             } else {
-                eprintln!("Directory has no map.json: {}", p.display());
+                eprintln!("Directory has no generated map data or legacy map.json: {}", p.display());
             }
             if let Some((path, data)) = ep {
                 state.entity = data;
@@ -63,7 +63,7 @@ fn main() {
                 state.mission_path = Some(path);
             }
         } else {
-            // 單檔模式（向後相容）：載入 map.json + 同目錄 sibling entity
+            // 單檔模式（向後相容）：載入 legacy map JSON + 同目錄 sibling entity
             let bytes = std::fs::read_to_string(&p).expect("cannot read map file");
             let cleaned = io::strip_json_comments_public(&bytes);
             match serde_json::from_str::<schema::CreepWaveData>(&cleaned) {

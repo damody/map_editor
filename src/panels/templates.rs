@@ -113,7 +113,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
 }
 
 fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
-    ui.label("Heroes (entity.json)").font_size(FS_HEAD).height(LH_HEAD).draw();
+    ui.label("Heroes (entity.lua)").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
     let heroes = app.entity.heroes.clone();
     for (i, h) in heroes.iter().enumerate() {
@@ -130,7 +130,7 @@ fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
     }
 
     ui.spacer(16.0);
-    ui.label("Enemies (entity.json)").font_size(FS_HEAD).height(LH_HEAD).draw();
+    ui.label("Enemies (entity.lua)").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
     let enemies = app.entity.enemies.clone();
     for (i, e) in enemies.iter().enumerate() {
@@ -152,6 +152,6 @@ fn draw_entities_mode(ui: &mut UI, app: &mut AppState) {
             .font_size(FS_CAPTION)
             .draw();
     } else {
-        ui.label("(未載入 entity.json)").font_size(FS_LABEL).draw();
+        ui.label("(未載入 entity.lua)").font_size(FS_LABEL).draw();
     }
 }
