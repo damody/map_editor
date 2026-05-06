@@ -1,4 +1,4 @@
-//! 中央 2D 地圖 viewport：繪製 + 滑鼠互動
+//! 中央 2D 地圖視窗：繪圖 + 滑鼠互動
 use eui::quick::ui::UI;
 use eui::{rgba, Color, Rect};
 
@@ -40,7 +40,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     draw_paths(ui, &rect, app);
     draw_blocked_regions(ui, &rect, app);
 
-    // CheckPoints
+    // 路徑點
     for (i, cp) in app.map.CheckPoint.iter().enumerate() {
         let (sx, sy) = world_to_screen(app, &rect, cp.X, cp.Y);
         let selected = matches!(app.selection, Selection::CheckPoint(idx) if idx == i);
@@ -60,7 +60,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             .draw();
     }
 
-    // Structures
+    // 建築與防禦塔
     for (i, st) in app.map.Structures.iter().enumerate() {
         let (sx, sy) = world_to_screen(app, &rect, st.X, st.Y);
         let selected = matches!(app.selection, Selection::Structure(idx) if idx == i);
@@ -122,7 +122,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         }
     }
 
-    // 右鍵：AddBlockedRegion 時 commit 多邊形
+        // 右鍵：AddBlockedRegion 時提交目前草稿多邊形
     if in_canvas
         && ui.ctx().input().mouse_right_pressed
         && app.tool == Tool::AddBlockedRegion
@@ -131,7 +131,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         return;
     }
 
-    // 右鍵：AddCheckPoint 時取消當前連線鏈
+        // 右鍵：AddCheckPoint 時取消目前連線鏈
     if in_canvas
         && ui.ctx().input().mouse_right_pressed
         && app.tool == Tool::AddCheckPoint
@@ -416,7 +416,7 @@ fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
             .map(|p| world_to_screen(app, rect, p.X, p.Y))
             .collect();
         let f = if selected_region { fill_sel } else { fill };
-        // scan-line fill：用 2px 高的細長矩形拼出多邊形填色，支援凹多邊形
+        // 掃描線填色：用 2px 高的細長矩形拼出多邊形填色，支援凹多邊形
         fill_polygon_scanline(ui, rect, &pts, f);
         for i in 0..n {
             let a = pts[i];
@@ -444,7 +444,7 @@ fn draw_blocked_regions(ui: &mut UI, rect: &Rect, app: &AppState) {
     }
 }
 
-/// 多邊形 scan-line 填色：支援凹多邊形。以 step_y 的水平帶拼接。
+/// 多邊形掃描線填色：支援凹多邊形。以 step_y 的水平帶拼接。
 fn fill_polygon_scanline(ui: &mut UI, clip_rect: &Rect, pts: &[(f32, f32)], color: Color) {
     if pts.len() < 3 {
         return;

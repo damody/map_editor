@@ -71,7 +71,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             WaveZoom::Fixed(s) => s,
         };
 
-        // ── drag update ───────────────────────────────────
+        // ── 拖曳更新：處理中途拖動中的 spawn 時間 ─────────────
         if let Some(drag) = app.wave_edit.drag.clone() {
             let new_time = drag.orig_time + (mx - drag.start_mouse_x) / px_per_sec;
             let delta = new_time - drag.orig_time;
@@ -107,7 +107,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         ui.ctx()
             .paint_text(header, &title, FS_SUBHEAD, muted, TextAlign::Left);
 
-        // ── Fit / Fixed zoom 按鈕 ─────────────────────────
+        // ── Fit / Fixed 縮放按鈕（自適應／固定）──────────────
         let btn_w = 60.0_f32;
         let fit_rect = Rect::new(
             r.x + r.w - 2.0 * btn_w - 12.0,
@@ -156,7 +156,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             false
         };
 
-        // ── Ctrl+滾輪 → 縮放；Shift+滾輪 → 水平卷動 ───────
+        // ── Ctrl+滾輪：縮放；Shift+滾輪：水平捲動 ───────
         if r.contains(mx, my) && input.mouse_wheel_y.abs() > 0.0 {
             if input.key_ctrl {
                 let cur = match app.wave_edit.zoom_mode {
@@ -301,7 +301,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
         }
 
-        // ── 右鍵 → 開啟 context menu ──────────────────────
+        // ── 右鍵：開啟上下文選單 ──────────────────────
         if input.mouse_right_pressed {
             if let Some((w, d, s, _)) = hit_spawn {
                 app.wave_edit.context_menu = Some(CtxMenu::Spawn {
@@ -318,7 +318,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
         }
 
-        // ── 繪製 context menu + 處理點選 ──────────────────
+        // ── 繪製上下文選單並處理點選 ──────────────────
         let menu_consumed_click = if let Some(menu) = app.wave_edit.context_menu.clone() {
             let (sx, sy) = match &menu {
                 CtxMenu::Empty { screen_pos, .. } => *screen_pos,
@@ -427,7 +427,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             false
         };
 
-        // ── 左鍵點擊 → 選中 / 啟動 drag（menu / zoom 按鈕未攔截時）──
+        // ── 左鍵點擊：選中 / 啟動拖曳（未被選單或縮放按鈕接手時）──
         if input.mouse_pressed
             && !menu_consumed_click
             && !btn_consumed_click

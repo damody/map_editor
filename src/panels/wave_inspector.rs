@@ -20,7 +20,7 @@ fn input_f32(ui: &mut UI, label: &str, v: &mut f32) -> bool {
     let changed = input_str(ui, label, &mut s);
     if changed {
         if let Ok(parsed) = s.trim().parse::<f32>() {
-            *v = parsed;
+            * v = 已解析；
             return true;
         }
     }

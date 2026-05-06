@@ -5,7 +5,7 @@ use crate::app::AppState;
 use crate::panels::{wave_inspector, wave_list, wave_timeline};
 use crate::style::{FS_LABEL, FS_SUBHEAD, LH_LABEL, WAVE_LIST_W};
 
-/// Map/Entities 模式底部的唯讀 wave 預覽條（單行）
+/// Map/Entities 模式底部的只讀 wave 預覽條（單行）
 pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     ui.scope(rect, |ctx| {
         let mut ui = UI::new(ctx);
@@ -35,7 +35,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     });
 }
 
-/// Waves 模式三欄分派：左 wave 列表｜中 timeline｜右 inspector
+    /// Waves 模式三欄佈局：左 wave 列表｜中 timeline｜右 inspector
 pub fn draw_wave_mode(ui: &mut UI, rect: Rect, app: &mut AppState) {
     let list_w = WAVE_LIST_W;
     let inspector_w = app.inspector_w.max(crate::style::INSPECTOR_MIN_W);

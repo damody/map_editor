@@ -38,7 +38,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
         ui.scope(inner, |ctx| {
             let mut ui = UI::new(ctx);
 
-            // 水平 6 欄：Open / Save / | / Select / AddTower / AddCheckPoint
+            // 水平 6 欄：開啟 / 儲存 / | / Select / AddTower / AddCheckPoint
             let row = ui.content_rect();
             let cell_w = TOOLBAR_CELL_W;
             let mut x = row.x;
@@ -125,7 +125,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             let tool_btn =
                 |ui: &mut UI, label: &str, tool: Tool, app_tool: Tool, x: &mut f32| -> bool {
                     let br = Rect::new(*x, row.y, cell_w, row.h);
-                    *x += cell_w + TOOLBAR_CELL_GAP;
+                    * x += cell_w + TOOLBAR_​​GAP；
                     let style = if app_tool == tool {
                         ButtonStyle::Primary
                     } else {
@@ -152,7 +152,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
 
             x += TOOLBAR_GROUP_GAP;
-            // ViewMode 切換：Map（藍）/ Entities（綠）/ Waves（紫），三色自繪以利辨識
+            // ViewMode 切換：Map（藍）/ Entities（綠）/ Waves（紫），三色自繪便於辨識
             {
                 let br = Rect::new(x, row.y, cell_w, row.h);
                 x += cell_w + TOOLBAR_CELL_GAP;
@@ -179,7 +179,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
             }
 
             x += TOOLBAR_GROUP_GAP;
-            // 狀態文字：map + 其他已載入檔案的 dirty 標記
+            // 狀態文字：map 與其他已載入檔案的 dirty 標記
             let status = {
                 let dir = app
                     .current_path

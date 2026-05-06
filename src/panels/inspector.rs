@@ -9,10 +9,10 @@ use crate::style::{
     FS_SUBHEAD, H_FIELD, LH_FIELD_LABEL, LH_HEAD,
 };
 
-/// CheckPoint.Class 可選項目（第一項為預設）
+/// CheckPoint.Class 可選項目（第一項為預設值）
 const CHECKPOINT_CLASSES: &[&str] = &["Path", "Base", "Spawn", "Tower"];
 
-/// 包裝 ui.input：套用本專案的放大 label / 行高 / 值字級
+/// 包裝 ui.input：套用本專案的放大 label、行高與值字級
 fn input_str(ui: &mut UI, label: &str, v: &mut String) -> bool {
     ui.input(label, v)
         .label_font_size(FS_FIELD_LABEL)
@@ -22,7 +22,7 @@ fn input_str(ui: &mut UI, label: &str, v: &mut String) -> bool {
         .draw()
 }
 
-/// 下拉式選單字串欄位；不在清單內的原始值保留在 idx=0 的 fallback，使用者按下即切換。
+/// 下拉式選單字串欄位；不在清單內的原始值保留在 idx=0 的 fallback，點擊後即切換。
 fn combo_str(ui: &mut UI, label: &str, v: &mut String, items: &[&str]) -> bool {
     let lr = ui.content_rect();
     let y = ui.cursor_y();
@@ -85,7 +85,7 @@ pub fn draw(ui: &mut UI, rect: Rect, app: &mut AppState) {
     });
 }
 
-/// f32 欄位：純數字 textbox（無 slider bar），失焦時 clamp 與 round
+/// f32 欄位：純數字輸入框（無 slider bar），失焦時會做限制並四捨五入
 fn slider_f32(ui: &mut UI, label: &str, v: &mut f32, min: f32, max: f32) -> bool {
     let changed = ui
         .numeric_field(label, v)
@@ -100,7 +100,7 @@ fn slider_f32(ui: &mut UI, label: &str, v: &mut f32, min: f32, max: f32) -> bool
     changed
 }
 
-/// Option<f32> 欄位：純數字 textbox，0 → None
+/// Option<f32> 欄位：純數字輸入框，0 → None
 fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: f32) -> bool {
     let mut val = v.unwrap_or(0.0);
     let changed = ui
@@ -114,12 +114,12 @@ fn slider_opt_f32(ui: &mut UI, label: &str, v: &mut Option<f32>, min: f32, max: 
         .draw();
     if changed {
         val = val.round();
-        *v = if val <= 0.0 { None } else { Some(val) };
+        * v = if val <= 0.0 { 無 } else { Some(val) };
     }
     changed
 }
 
-/// i32 欄位：純數字 textbox，透過 f32 折射
+/// i32 欄位：純數字輸入框，透過 f32 轉換處理
 fn slider_i32(ui: &mut UI, label: &str, v: &mut i32, min: i32, max: i32) -> bool {
     let mut f = *v as f32;
     let changed = ui

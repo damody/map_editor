@@ -1,7 +1,7 @@
-//! Pure data mutation helpers for wave editing (testable without UI).
+﻿//! 供波次編輯使用的純資料變更輔助函式（可在無 UI 狀態下進行測試）。
 use crate::schema::{CreepWaveData, CreepWaveJD, DetailJD};
 
-/// 單一 spawn drag：改某 spawn 的 Time（clamp to 0）
+/// 單一 spawn drag：改某 spawn 的 Time（限制最低為 0）
 pub fn drag_spawn_time(wave: &mut CreepWaveJD, d: usize, s: usize, new_time: f32) {
     if let Some(detail) = wave.Detail.get_mut(d) {
         if let Some(spawn) = detail.Creeps.get_mut(s) {
@@ -10,7 +10,7 @@ pub fn drag_spawn_time(wave: &mut CreepWaveJD, d: usize, s: usize, new_time: f32
     }
 }
 
-/// 新增一個 wave，預設名稱 W{N+1:02}，自動含一個用 first_path 的 Detail
+/// 新增一個 wave，預設名稱 W{N+1:02}，自動附上 first_path 對應的 Detail
 pub fn add_wave(map: &mut CreepWaveData) -> usize {
     let n = map.CreepWave.len();
     let name = format!("W{:02}", n + 1);
@@ -135,3 +135,4 @@ mod tests_wave_crud {
         assert!(!delete_wave(&mut m, 0));
     }
 }
+

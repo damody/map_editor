@@ -27,7 +27,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
     ui.label("Tower 模板").font_size(FS_HEAD).height(LH_HEAD).draw();
     ui.spacer(4.0);
 
-    // Tower templates — 雙擊 (shift) 進 inspector；普通點擊 → 設為「新增塔」模板
+    // 塔模組清單。Shift 雙擊進入 inspector；一般點擊則設為「新增塔」模板
     let towers = app.map.Tower.clone();
     let mut selected_template = app.new_tower_template.clone();
     for (i, t) in towers.iter().enumerate() {
@@ -90,7 +90,7 @@ fn draw_map_mode(ui: &mut UI, app: &mut AppState) {
         ui.spacer(2.0);
     }
 
-    // BlockedRegions 列表：方便跨多邊形管理
+    // 阻擋區域清單：便於跨多邊形統一管理
     ui.spacer(16.0);
     ui.label(&format!("BlockedRegions ({})", app.map.BlockedRegions.len()))
         .font_size(FS_HEAD)

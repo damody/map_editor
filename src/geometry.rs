@@ -1,7 +1,7 @@
 //! 2D 幾何工具。與 `omb/src/util/geometry.rs` 演算法完全一致，以保證
 //! 編輯器預覽的阻擋判定與遊戲執行時結果相同。
 
-/// Ray-casting：點是否在多邊形（凹/凸皆可）內部。
+/// 射線法判斷：點是否在多邊形（凹/凸皆可）內部。
 pub fn point_in_polygon(px: f32, py: f32, poly: &[(f32, f32)]) -> bool {
     if poly.len() < 3 {
         return false;
@@ -23,6 +23,7 @@ pub fn point_in_polygon(px: f32, py: f32, poly: &[(f32, f32)]) -> bool {
 }
 
 /// 點 (px,py) 到線段 (ax,ay)-(bx,by) 的最短距離。
+// 以英文符號名稱為欄位時保留原樣（例如 px、py、ax、ay、bx、by）。
 pub fn point_segment_dist(px: f32, py: f32, ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
     let dx = bx - ax;
     let dy = by - ay;

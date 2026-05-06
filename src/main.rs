@@ -35,11 +35,11 @@ fn main() {
     opts.height = 960;
     opts.text_font_file = cjk_font;
 
-    // 若啟動時帶 CLI 參數 → 判斷是目錄還是單檔
+        // 啟動時若帶 CLI 參數 → 判斷是目錄還是單檔
     if let Some(path_arg) = std::env::args().nth(1) {
         let p = std::path::PathBuf::from(&path_arg);
         if p.is_dir() {
-            // 目錄模式：優先載入 generated story data，否則 fallback 到 legacy JSON import。
+            // 目錄模式：優先載入 generated story data，否則回退到 legacy JSON import。
             let (mp, ep, ap, misp) = io::load_campaign_dir(&p);
             if let Some((path, data)) = mp {
                 if let Some(t) = data.Tower.first() {
@@ -110,7 +110,7 @@ fn main() {
                 state.apply_snapshot(snap);
             }
         }
-        // 滑鼠 press / release 或快捷鍵觸發後切分 coalesce group
+        // 滑鼠按下、放開，或快捷鍵觸發後都會中斷群組（coalesce）合併
         if input_snapshot.mouse_pressed
             || input_snapshot.mouse_released
             || input_snapshot.key_undo
@@ -119,12 +119,12 @@ fn main() {
             state.undo.end_group();
         }
 
-        // 佈局：toolbar (頂), waves (底), 中間 left templates | canvas | splitter | inspector
+        // 版面：上方 toolbar、下方 waves，中間依序為 left templates、canvas、splitter、inspector
         let toolbar_h = style::TOOLBAR_H;
         let waves_h = style::WAVES_H;
         let left_w = style::LEFT_W;
 
-        // 夾住 inspector 寬度於合理範圍
+        // 將 inspector 寬度限制在合理範圍
         let min_w = style::INSPECTOR_MIN_W;
         let middle_w = content.w - left_w;
         let max_w = (middle_w - 200.0).max(min_w); // canvas 至少 200px

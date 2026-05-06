@@ -1,4 +1,4 @@
-use crate::app::Selection;
+﻿use crate::app::Selection;
 use crate::entity_schema::EntityConfig;
 use crate::schema::CreepWaveData;
 
@@ -72,3 +72,4 @@ impl Default for UndoStack {
         Self::new()
     }
 }
+

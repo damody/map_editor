@@ -2,7 +2,7 @@ use crate::entity_schema::EntityConfig;
 use crate::schema::CreepWaveData;
 use std::path::PathBuf;
 
-/// 用 rfd 檔案對話框開啟 legacy map JSON；shipped stories 走 generated data directory mode。
+/// 用 rfd 檔案對話框開啟 legacy map JSON；若是 shipped story，改走 generated data directory mode。
 pub fn pick_and_load() -> Result<(PathBuf, CreepWaveData), String> {
     let path = rfd::FileDialog::new()
         .add_filter("Map JSON", &["json"])
@@ -10,7 +10,7 @@ pub fn pick_and_load() -> Result<(PathBuf, CreepWaveData), String> {
         .pick_file()
         .ok_or_else(|| "User cancelled".to_string())?;
     let bytes = std::fs::read_to_string(&path).map_err(|e| format!("read: {}", e))?;
-    // legacy JSON 可能有 C-style 註解（// 和 /* */），移除後再 parse
+        // legacy JSON 可能有 C-style 註解（// 和 /* */），移除後再解析
     let cleaned = strip_json_comments(&bytes);
     let data: CreepWaveData =
         serde_json::from_str(&cleaned).map_err(|e| format!("parse: {}", e))?;
@@ -106,7 +106,7 @@ pub fn save_mission_to(path: &PathBuf, data: &serde_json::Value) -> Result<(), S
 }
 
 /// 載入一個目錄。若目錄名稱是 shipped story id，優先使用 generated Rust data；
-/// 否則 fallback 到 legacy JSON import。
+/// 否則回退到 legacy JSON 匯入流程。
 pub fn load_campaign_dir(dir: &std::path::Path) -> (
     Option<(PathBuf, CreepWaveData)>,
     Option<(PathBuf, EntityConfig)>,
@@ -184,7 +184,7 @@ fn ensure_array_field(value: &mut serde_json::Value, key: &str) {
     let Some(object) = value.as_object_mut() else { return; };
     match object.get_mut(key) {
         Some(field) if field.as_object().is_some_and(serde_json::Map::is_empty) => {
-            *field = serde_json::Value::Array(Vec::new());
+            * 字段 = serde_json::Value::Array(Vec::new());
         }
         None => {
             object.insert(key.to_string(), serde_json::Value::Array(Vec::new()));
@@ -288,7 +288,7 @@ fn strip_json_comments(src: &str) -> String {
             }
             continue;
         }
-        // 多行 /* */
+        // 多行註解區塊（/* */）
         if c == '/' && i + 1 < chars.len() && chars[i + 1] == '*' {
             i += 2;
             while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {

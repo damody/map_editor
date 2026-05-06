@@ -1,4 +1,4 @@
-use crate::entity_schema::EntityConfig;
+﻿use crate::entity_schema::EntityConfig;
 use crate::schema::{CreepWaveData, PointJD};
 use crate::undo::{Snapshot, UndoStack};
 
@@ -6,15 +6,15 @@ use crate::undo::{Snapshot, UndoStack};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
     None,
-    // map.lua / generated map data
+    // map.lua / generated map 資料
     Structure(usize),
     CheckPoint(usize),
     BlockedRegion(usize),
-    /// (region_idx, point_idx)
+    /// （區域 idx，點 idx）
     BlockedRegionPoint(usize, usize),
     TowerTemplate(usize),
     CreepTemplate(usize),
-    // entity.lua / generated entity data
+    // entity.lua / generated entity 資料
     Hero(usize),
     Enemy(usize),
     /// 選中整波（Inspector 顯示 Name / StartTime / + Detail）
@@ -161,8 +161,8 @@ impl Default for AppState {
 
 impl AppState {
     /// 在每次修改 map/entity/selection 之前呼叫，將當前狀態壓入 undo 堆疊。
-    /// tag=Some(...)：同 tag 在同一 group 內只 push 一次（slider / drag 合併）。
-    /// tag=None：一次性操作（新增 / 刪除等），每次都 push。
+    /// tag=Some(...)：同 tag 在同一群組內只會推入一次（slider / drag 合併）。
+    /// tag=None：一次性操作（新增 / 刪除等），每次都推入。
     pub fn begin_edit(&mut self, tag: Option<&str>) {
         let snap = Snapshot {
             map: self.map.clone(),
@@ -240,3 +240,4 @@ pub struct WaveEditState {
     /// 二次點擊確認刪除：(wave_idx, 第一次點擊時間)
     pub pending_delete_wave: Option<(usize, std::time::Instant)>,
 }
+

@@ -1,7 +1,7 @@
-//! Mirror of `omb/src/ue4/import_map.rs` for generated map data.
+﻿//! `omb/src/ue4/import_map.rs` 的 generated map 對應表。
 //! 欄位命名維持 PascalCase 以符合既有 map.lua table shape。
 
-#![allow(non_snake_case)]
+# ![允許(non_snake_case)]
 
 use serde::{Deserialize, Serialize};
 
@@ -12,9 +12,9 @@ pub struct CreepWaveData {
     pub CheckPoint: Vec<CheckPointJD>,
     pub Tower: Vec<TowerJD>,
     pub CreepWave: Vec<CreepWaveJD>,
-    #[serde(default)]
+    # [serde（預設）]
     pub Structures: Vec<StructureJD>,
-    #[serde(default)]
+    # [serde（預設）]
     pub BlockedRegions: Vec<BlockedRegionJD>,
 }
 
@@ -24,9 +24,9 @@ pub struct StructureJD {
     pub Faction: String,
     pub X: f32,
     pub Y: f32,
-    #[serde(default)]
+    # [serde（預設）]
     pub IsBase: bool,
-    #[serde(default)]
+    # [serde（預設）]
     pub CollisionRadius: Option<f32>,
 }
 
@@ -39,22 +39,22 @@ pub struct PathJD {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct CreepJD {
     pub Name: String,
-    /// Legacy JSON-only field. Generated map data omits map-local labels/stats.
-    #[serde(default)]
+    /// 僅出現在 legacy JSON 的欄位。generated map data 不包含地圖本地標籤與統計值。
+    # [serde（預設）]
     pub Label: Option<String>,
-    #[serde(default)]
+    # [serde（預設）]
     pub HP: f32,
-    #[serde(default)]
+    # [serde（預設）]
     pub DefendPhysic: f32,
-    #[serde(default)]
+    # [serde（預設）]
     pub DefendMagic: f32,
-    #[serde(default)]
+    # [serde（預設）]
     pub MoveSpeed: f32,
-    #[serde(default)]
+    # [serde（預設）]
     pub Faction: Option<String>,
-    #[serde(default)]
+    # [serde（預設）]
     pub TurnSpeed: Option<f32>,
-    #[serde(default)]
+    # [serde（預設）]
     pub CollisionRadius: Option<f32>,
 }
 
@@ -71,9 +71,9 @@ pub struct TowerJD {
     pub Name: String,
     pub Property: PropertyJD,
     pub Attack: AttackJD,
-    #[serde(default)]
+    # [serde（預設）]
     pub TurnSpeed: Option<f32>,
-    #[serde(default)]
+    # [serde（預設）]
     pub CollisionRadius: Option<f32>,
 }
 
@@ -137,7 +137,7 @@ mod tests {
         println!("paths={} cps={} towers={} structures={} waves={} regions={}",
             data.Path.len(), data.CheckPoint.len(), data.Tower.len(),
             data.Structures.len(), data.CreepWave.len(), data.BlockedRegions.len());
-        // round-trip
+        // 轉換來回（round-trip）檢查
         let back = serde_json::to_string_pretty(&data).expect("serialize");
         let data2: CreepWaveData = serde_json::from_str(&back).expect("reparse");
         assert_eq!(data.Structures.len(), data2.Structures.len());
@@ -190,3 +190,4 @@ mod tests {
         assert_eq!(d2.BlockedRegions[0].Points.len(), 3);
     }
 }
+
